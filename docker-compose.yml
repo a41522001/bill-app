@@ -1,0 +1,37 @@
+services:
+  # PostgreSQL 資料庫服務
+  db:
+    image: postgres:18.1
+    container_name: bill-app-postgres
+    restart: always
+    env_file: './.env'
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_vol:/var/lib/postgresql
+    networks:
+      - bill-app-network
+
+  redis:
+    image: redis:7.4
+    container_name: bill-app-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_vol:/data
+    command: redis-server --appendonly yes
+    networks:
+      - bill-app-network
+
+networks:
+  bill-app-network:
+    driver: bridge
+
+volumes:
+  postgres_vol:
+  redis_vol:

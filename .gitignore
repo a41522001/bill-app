@@ -1,0 +1,23 @@
+## [繼承] .NET 標準排除
+[Bb]in/
+[Oo]bj/
+
+## [環境變數] 
+.env
+.env.*
+
+## [組態檔案] 
+appsettings.Development.json
+appsettings.Local.json
+
+## [IDE - Visual Studio]
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+
+## [OS - macOS]
+.DS_Store
+
+## [Docker]
+.dockerignore
