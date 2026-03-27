@@ -1,20 +1,40 @@
+using Bill_App.Models;
+using Bill_App.Options;
+using Bill_App.Services.Interfaces;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Bill_App.Models;
-using Bill_App.Services.Interfaces;
-using Microsoft.IdentityModel.Tokens;
 
 namespace Bill_App.Services;
 
-public class TokenService(IConfiguration config) : ITokenService
+public class TokenService(IOptions<JwtOptions> options) : ITokenService
 {
-    private readonly string _secret = config["Jwt:Secret"]!;
+    private readonly JwtOptions _jwt = options.Value;
 
-    public string GenerateToken(ClaimsPrincipal principal)
+    public string GenerateAccessToken(User user)
     {
-        throw new NotImplementedException();
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.Key));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Name, user.Name),
+            new(ClaimTypes.Email, user.Email),
+            new("sub", user.Sub.ToString())
+        };
+        var token = new JwtSecurityToken(
+            issuer: _jwt.Issuer,
+            audience: _jwt.Audience,
+            claims: claims,
+            expires: DateTime.UtcNow.AddMinutes(_jwt.DurationInMinutes),
+            signingCredentials: creds
+        );
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
+
+    public Guid GenerateRefreshToken() => Guid.NewGuid();
 
     public bool ShouldRefresh(string token)
     {
@@ -26,7 +46,7 @@ public class TokenService(IConfiguration config) : ITokenService
         try
         {
             var handler = new JwtSecurityTokenHandler();
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secret));
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.Key));
 
             var result = handler.ValidateToken(token, new TokenValidationParameters
             {
