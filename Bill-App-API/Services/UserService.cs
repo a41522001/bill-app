@@ -3,53 +3,72 @@ using Bill_App.Dtos;
 using Bill_App.Interfaces;
 using Bill_App.Models;
 using Bill_App.Utils;
+using Bill_App_Cache.Dtos;
+using Bill_App_Cache.Interface;
 using Microsoft.EntityFrameworkCore;
+using System.Xml.Linq;
 namespace Bill_App.Services;
 
-public class UserService : IUserService
+public class UserService(BillDbContext dbContext, IRedisService RedisService) : IUserService
 {
-  private readonly BillDbContext _dbContext;
-  public UserService(BillDbContext dbContext)
-  {
-    _dbContext = dbContext;
-  }
-  public async Task<bool> Signup(UserSignupRequest req)
-  {
-    var user = await _dbContext.Users.FirstOrDefaultAsync(item => item.Email == req.Email);
-    if (user is null)
+    public async Task<bool> Signup(UserSignupRequest req)
     {
-      var hashPassword = PasswordHasher.HashPassword(req.Password);
-      User newUser = new User
-      {
-        Name = req.Name,
-        Email = req.Email,
-        Password = hashPassword
-      };
-      await _dbContext.Users.AddAsync(newUser);
-      await _dbContext.SaveChangesAsync();
-      return true;
+        var user = await dbContext.Users.FirstOrDefaultAsync(item => item.Email == req.Email);
+        if (user is null)
+        {
+            var hashPassword = PasswordHasher.HashPassword(req.Password);
+            User newUser = new User
+            {
+                Name = req.Name,
+                Email = req.Email,
+                Password = hashPassword
+            };
+            await dbContext.Users.AddAsync(newUser);
+            await dbContext.SaveChangesAsync();
+            return true;
 
+        }
+        return false;
     }
-    return false;
-  }
-  public async Task<User?> Login(UserLoginRequest req)
-  {
-    var user = await _dbContext.Users.FirstOrDefaultAsync(item => item.Email == req.Email);
-    if (user is null)
+    public async Task<User?> Login(UserLoginRequest req)
     {
-      return user;
+        var user = await dbContext.Users.FirstOrDefaultAsync(item => item.Email == req.Email);
+        if (user is null)
+        {
+            return user;
+        }
+        bool isVerify = PasswordHasher.VerifyPassword(req.Password, user.Password);
+        if (isVerify)
+        {
+            var userSub = new UserSubHash(
+                UserId: user.Id,
+                Email: user.Email,
+                Name: user.Name
+            );
+            await RedisService.SetUserSubAsync(user.Sub, userSub);
+            return user;
+        }
+        return null;
     }
-    bool isVerify = PasswordHasher.VerifyPassword(req.Password, user.Password);
-    return isVerify ? user : null;
-  }
-  public async Task<Guid?> GetUserId(Guid sub)
-  {
-    var user = await _dbContext.Users.FirstOrDefaultAsync(item => item.Sub == sub);
-    if (user is null)
+    public async Task<Guid?> GetUserId(Guid sub)
     {
-      return null;
+        var result = await RedisService.GetUserSubAsync(sub);
+        if(result is null)
+        {
+            var user = await dbContext.Users.FirstOrDefaultAsync(item => item.Sub == sub);
+            if(user is null)
+            {
+                return null;
+            }
+            var userSub = new UserSubHash(
+                UserId: user.Id,
+                Email: user.Email,
+                Name: user.Name
+            );
+            await RedisService.SetUserSubAsync(user.Sub, userSub);
+            return user.Id;
+        }
+        return result?.UserId;
     }
-    return user.Id;
-  }
 }
 

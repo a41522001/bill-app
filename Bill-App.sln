@@ -1,9 +1,19 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.0.31903.59
+# Visual Studio Version 18
+VisualStudioVersion = 18.2.11415.280 d18.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bill-App-Cache", "Bill-App-Cache\Bill-App-Cache.csproj", "{E1B1FAFB-FDBF-491A-92A0-837DE2048A0B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bill-App-API", "Bill-App-API\Bill-App-API.csproj", "{F2947EB3-5FDE-2184-63B2-7B1B498A4E75}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "方案項目", "方案項目", "{1445CD8C-6A56-4A73-BA16-5B071D9274A9}"
+	ProjectSection(SolutionItems) = preProject
+		.env = .env
+		.gitignore = .gitignore
+		CLAUDE.md = CLAUDE.md
+		docker-compose.yml = docker-compose.yml
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,6 +37,18 @@ Global
 		{E1B1FAFB-FDBF-491A-92A0-837DE2048A0B}.Release|x64.Build.0 = Release|Any CPU
 		{E1B1FAFB-FDBF-491A-92A0-837DE2048A0B}.Release|x86.ActiveCfg = Release|Any CPU
 		{E1B1FAFB-FDBF-491A-92A0-837DE2048A0B}.Release|x86.Build.0 = Release|Any CPU
+		{F2947EB3-5FDE-2184-63B2-7B1B498A4E75}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F2947EB3-5FDE-2184-63B2-7B1B498A4E75}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F2947EB3-5FDE-2184-63B2-7B1B498A4E75}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F2947EB3-5FDE-2184-63B2-7B1B498A4E75}.Debug|x64.Build.0 = Debug|Any CPU
+		{F2947EB3-5FDE-2184-63B2-7B1B498A4E75}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{F2947EB3-5FDE-2184-63B2-7B1B498A4E75}.Debug|x86.Build.0 = Debug|Any CPU
+		{F2947EB3-5FDE-2184-63B2-7B1B498A4E75}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F2947EB3-5FDE-2184-63B2-7B1B498A4E75}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F2947EB3-5FDE-2184-63B2-7B1B498A4E75}.Release|x64.ActiveCfg = Release|Any CPU
+		{F2947EB3-5FDE-2184-63B2-7B1B498A4E75}.Release|x64.Build.0 = Release|Any CPU
+		{F2947EB3-5FDE-2184-63B2-7B1B498A4E75}.Release|x86.ActiveCfg = Release|Any CPU
+		{F2947EB3-5FDE-2184-63B2-7B1B498A4E75}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

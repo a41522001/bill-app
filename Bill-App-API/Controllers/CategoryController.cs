@@ -7,18 +7,8 @@ namespace Bill_App.Controllers;
 
 [ApiController]
 [Route("[controller]")]
-public class CategoryController : ControllerBase
+public class CategoryController(ILogger<CategoryController> logger, BillDbContext dbContext, ICategoryService categoryService) : ControllerBase
 {
-  private readonly BillDbContext _dbContext;
-  private readonly ICategoryService _categoryService;
-  private readonly ILogger<CategoryController> _logger;
-  public CategoryController(ILogger<CategoryController> logger, BillDbContext dbContext, ICategoryService categoryService)
-  {
-    _logger = logger;
-    _dbContext = dbContext;
-    _categoryService = categoryService;
-  }
-
   /// <summary>
   /// 新增類別
   /// </summary>
@@ -28,7 +18,7 @@ public class CategoryController : ControllerBase
   public async Task<ActionResult> AddCategory([FromBody] CategoryAddRequest req)
   {
     Guid userId = Guid.Parse("c5824692-cba4-46a2-afc5-05c8a6604abd");
-    var isOk = await _categoryService.AddCategory(req, userId);
+    var isOk = await categoryService.AddCategory(req, userId);
     if (isOk)
     {
       return Ok("新增成功");

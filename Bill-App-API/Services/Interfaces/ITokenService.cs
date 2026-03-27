@@ -1,0 +1,11 @@
+using Bill_App.Models;
+using System.Security.Claims;
+
+namespace Bill_App.Services.Interfaces;
+
+public interface ITokenService
+{
+    ClaimsPrincipal? ValidateToken(string token);
+    string GenerateToken(ClaimsPrincipal principal);
+    bool ShouldRefresh(string token);
+}

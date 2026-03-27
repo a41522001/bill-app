@@ -6,13 +6,8 @@ using Bill_App.Utils;
 using Microsoft.EntityFrameworkCore;
 namespace Bill_App.Services;
 
-public class CategoryService : ICategoryService
+public class CategoryService(BillDbContext dbContext) : ICategoryService
 {
-  private readonly BillDbContext _dbContext;
-  public CategoryService(BillDbContext dbContext)
-  {
-    _dbContext = dbContext;
-  }
   public async Task<bool> AddCategory(CategoryAddRequest req, Guid userId)
   {
     var categories = await GetCategory(userId);
@@ -25,15 +20,15 @@ public class CategoryService : ICategoryService
         Type = req.Type,
         UserId = userId
       };
-      await _dbContext.Categories.AddAsync(category);
-      await _dbContext.SaveChangesAsync();
+      await dbContext.Categories.AddAsync(category);
+      await dbContext.SaveChangesAsync();
       return true;
     }
     return false;
   }
   public async Task<List<Category>> GetCategory(Guid userId)
   {
-    var categories = await _dbContext.Categories.Where(item => item.UserId == userId).ToListAsync();
+    var categories = await dbContext.Categories.Where(item => item.UserId == userId).ToListAsync();
     return categories;
   }
 }

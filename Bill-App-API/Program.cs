@@ -1,14 +1,15 @@
 using Bill_App.Contexts;
 using Bill_App.Interfaces;
+using Bill_App.Options;
 using Bill_App.Services;
 using Bill_App.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
+using Bill_App_API.Middlewares;
+using Bill_App_Cache.Interface;
+using Bill_App_Cache.Services;
 using DotNetEnv;
-
-Env.Load();
+using Microsoft.EntityFrameworkCore;
+using StackExchange.Redis;
+Env.Load("../.env");
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -18,30 +19,33 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen();
 // Database
-builder.Services.AddDbContext<BillDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-// Authentication
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-      var jwtSettings = builder.Configuration.GetSection("Jwt");
-      var key = Encoding.UTF8.GetBytes(builder.Configuration["JWT__KEY"] ?? jwtSettings["Key"]!);
+var dbUser = Environment.GetEnvironmentVariable("DB_USER");
+var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
+var dbName = Environment.GetEnvironmentVariable("DB_NAME");
+var connectionString = $"Host=localhost;Port=5432;Database={dbName};Username={dbUser};Password={dbPassword}";
 
-      options.TokenValidationParameters = new TokenValidationParameters
-      {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = builder.Configuration["JWT__ISSUER"] ?? jwtSettings["Issuer"],
-        ValidAudience = builder.Configuration["JWT__AUDIENCE"] ?? jwtSettings["Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(key)
-      };
-    });
+builder.Services.AddDbContext<BillDbContext>(options =>
+    options.UseNpgsql(connectionString));
+// Options
+builder.Services.Configure<JwtOptions>(options =>
+{
+    options.Key = Environment.GetEnvironmentVariable("JWT__KEY")!;
+    options.Issuer = Environment.GetEnvironmentVariable("JWT__ISSUER")!;
+    options.Audience = Environment.GetEnvironmentVariable("JWT__AUDIENCE")!;
+    options.DurationInMinutes = int.Parse(
+        Environment.GetEnvironmentVariable("JWT__DURATION_IN_MINUTES") ?? "15");
+});
+
 // Dependence Injection
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
-builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<ITokenService, TokenService>();
+
+// Redis
+builder.Services.AddSingleton<IConnectionMultiplexer>(
+    ConnectionMultiplexer.Connect("localhost:6379"));
+builder.Services.AddScoped<IRedisService, RedisService>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -53,9 +57,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
+app.UseMiddleware<TokenMiddleware>();
+app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();
