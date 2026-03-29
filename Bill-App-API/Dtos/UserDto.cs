@@ -10,3 +10,8 @@ public record UserLoginRequest(
   string Email,
   string Password
 );
+
+public record UserLoginResponse(
+   string AccessToken,
+   Guid RefreshToken
+);

@@ -6,7 +6,7 @@ using Bill_App.Interfaces;
 namespace Bill_App.Controllers;
 
 [ApiController]
-[Route("[controller]")]
+[Route("api/[controller]")]
 public class CategoryController(ILogger<CategoryController> logger, BillDbContext dbContext, ICategoryService categoryService) : ControllerBase
 {
   /// <summary>

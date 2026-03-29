@@ -30,60 +30,58 @@ public class UserService(BillDbContext dbContext, IRedisService RedisService, IT
         }
         return false;
     }
-    public async Task<User?> Login(UserLoginRequest req)
+    public async Task<UserLoginResponse?> Login(UserLoginRequest req)
     {
         var user = await dbContext.Users.FirstOrDefaultAsync(item => item.Email == req.Email);
-        if (user is null)
+        if (user is not null)
         {
-            return user;
-        }
-        bool isVerify = PasswordHasher.VerifyPassword(req.Password, user.Password);
-        if (isVerify)
-        {
-            var userSub = new UserSubHash(
-                UserId: user.Id,
-                Email: user.Email,
-                Name: user.Name
-            );
-            // 生成redis的user sub hash資訊 & zset ，過期時間為7天
-            var expireAt = DateTime.UtcNow.AddDays(7);
-            // 生成access token
-            var accessToken = TokenService.GenerateAccessToken(user);
-            // 生成refresh token
-            var refreshToken = TokenService.GenerateRefreshToken();
-            // 建立redis的user hash資訊
-            await RedisService.SetUserSubAsync(user.Sub, userSub);
-            // 建立redis的refresh token zset
-            await RedisService.SetRefreshToken(refreshToken, new RefreshTokenHash(
-                UserId: user.Id,
-                Expire: expireAt.ToString("o"),
-                Sub: user.Sub,
-                Name: user.Name,
-                IsOld: 0
-            ));
-            return user;
+            bool isVerify = PasswordHasher.VerifyPassword(req.Password, user.Password);
+            if (isVerify)
+            {
+                var userSub = new UserSubHash(
+                    UserId: user.Id,
+                    Email: user.Email,
+                    Name: user.Name
+                );
+                // 生成redis的user sub hash資訊 & zset ，過期時間為7天
+                var expireAt = DateTime.UtcNow.AddDays(7);
+                // 生成access token
+                var accessToken = TokenService.GenerateAccessToken(user);
+                // 生成refresh token
+                var refreshToken = TokenService.GenerateRefreshToken();
+                // 建立redis的user sub hash資訊
+                await RedisService.SetUserSubAsync(user.Sub, userSub);
+                // 建立redis的refresh token zset
+                await RedisService.SetUserRefreshToken(user.Id, refreshToken, expireAt);
+                // 建立redis的user hash資訊
+                await RedisService.SetRefreshToken(refreshToken, new RefreshTokenHash(
+                    UserId: user.Id,
+                    Expire: expireAt.ToString("o"),
+                    Sub: user.Sub,
+                    Name: user.Name,
+                    IsOld: IsOldType.No
+                ), expireAt);
+                return new UserLoginResponse(
+                    AccessToken: accessToken,
+                    RefreshToken: refreshToken
+                );
+            }
         }
         return null;
     }
     public async Task<Guid?> GetUserId(Guid sub)
     {
         var result = await RedisService.GetUserSubAsync(sub);
-        if(result is null)
+        if (result is null)
         {
             var user = await dbContext.Users.FirstOrDefaultAsync(item => item.Sub == sub);
-            if(user is null)
+            if (user is null)
             {
                 return null;
             }
-            var userSub = new UserSubHash(
-                UserId: user.Id,
-                Email: user.Email,
-                Name: user.Name
-            );
-            await RedisService.SetUserSubAsync(user.Sub, userSub);
             return user.Id;
         }
-        return result?.UserId;
+        return result.UserId;
     }
 }
 

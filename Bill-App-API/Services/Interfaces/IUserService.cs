@@ -5,6 +5,6 @@ namespace Bill_App.Interfaces;
 public interface IUserService
 {
   Task<bool> Signup(UserSignupRequest req);
-  Task<User?> Login(UserLoginRequest req);
+  Task<UserLoginResponse?> Login(UserLoginRequest req);
   Task<Guid?> GetUserId(Guid sub);
 }

@@ -5,7 +5,7 @@ namespace Bill_App.Services.Interfaces;
 
 public interface ITokenService
 {
-    ClaimsPrincipal? ValidateToken(string token);
+    ClaimsPrincipal? ValidateAccessToken(string token);
     string GenerateAccessToken(User user);
     Guid GenerateRefreshToken();
     bool ShouldRefresh(string token);

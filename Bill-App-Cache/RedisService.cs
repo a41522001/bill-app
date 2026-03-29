@@ -2,7 +2,6 @@
 using Bill_App_Cache.Interface;
 using Bill_App_Cache.Keys;
 using StackExchange.Redis;
-using System.Xml.Linq;
 namespace Bill_App_Cache.Services;
 public class RedisService(IConnectionMultiplexer redis) : IRedisService
 {
@@ -20,7 +19,7 @@ public class RedisService(IConnectionMultiplexer redis) : IRedisService
         double score = new DateTimeOffset(expireAt).ToUnixTimeMilliseconds();
         await _db.SortedSetAddAsync(key, refreshToken.ToString(), score);
     }
-    public async Task SetRefreshToken(Guid refreshToken, RefreshTokenHash data)
+    public async Task SetRefreshToken(Guid refreshToken, RefreshTokenHash data, DateTime expireAt)
     {
         var key = RedisKeys.RefreshToken(refreshToken);
         var entries = new HashEntry[]
@@ -32,6 +31,7 @@ public class RedisService(IConnectionMultiplexer redis) : IRedisService
             new HashEntry("IsOld", data.IsOld.ToString())
         };
         await _db.HashSetAsync(key, entries);
+        await _db.KeyExpireAsync(key, expireAt - DateTime.UtcNow);
     }
     public async Task<RefreshTokenHash?> GetRefreshToken(Guid refreshToken)
     {

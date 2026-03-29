@@ -19,9 +19,8 @@ public class TokenService(IOptions<JwtOptions> options) : ITokenService
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var claims = new List<Claim>
         {
-            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(ClaimTypes.Name, user.Name),
-            new(ClaimTypes.Email, user.Email),
+            new("name", user.Name),
+            new("email", user.Email),
             new("sub", user.Sub.ToString())
         };
         var token = new JwtSecurityToken(
@@ -41,13 +40,13 @@ public class TokenService(IOptions<JwtOptions> options) : ITokenService
         throw new NotImplementedException();
     }
 
-    public ClaimsPrincipal? ValidateToken(string token)
+    public ClaimsPrincipal? ValidateAccessToken(string token)
     {
         try
         {
             var handler = new JwtSecurityTokenHandler();
+            handler.MapInboundClaims = false;
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.Key));
-
             var result = handler.ValidateToken(token, new TokenValidationParameters
             {
                 ValidateIssuerSigningKey = true,
