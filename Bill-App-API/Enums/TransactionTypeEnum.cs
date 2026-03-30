@@ -1,4 +1,4 @@
-namespace Bill_App.Enums;
+namespace Bill_App_API.Enums;
 
 public enum TransactionTypeEnum
 {

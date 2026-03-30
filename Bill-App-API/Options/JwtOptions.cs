@@ -1,4 +1,4 @@
-namespace Bill_App.Options;
+namespace Bill_App_API.Options;
 
 public class JwtOptions
 {

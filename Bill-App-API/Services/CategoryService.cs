@@ -1,10 +1,10 @@
-using Bill_App.Contexts;
-using Bill_App.Dtos;
-using Bill_App.Interfaces;
-using Bill_App.Models;
-using Bill_App.Utils;
+using Bill_App_API.Contexts;
+using Bill_App_API.Dtos;
+using Bill_App_API.Interfaces;
+using Bill_App_API.Models;
+using Bill_App_API.Utils;
 using Microsoft.EntityFrameworkCore;
-namespace Bill_App.Services;
+namespace Bill_App_API.Services;
 
 public class CategoryService(BillDbContext dbContext) : ICategoryService
 {

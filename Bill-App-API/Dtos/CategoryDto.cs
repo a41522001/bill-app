@@ -1,5 +1,5 @@
-using Bill_App.Enums;
-namespace Bill_App.Dtos;
+using Bill_App_API.Enums;
+namespace Bill_App_API.Dtos;
 
 public record CategoryAddRequest(
   string Name,

@@ -1,6 +1,6 @@
-using Bill_App.Dtos;
-using Bill_App.Models;
-namespace Bill_App.Interfaces;
+using Bill_App_API.Dtos;
+using Bill_App_API.Models;
+namespace Bill_App_API.Interfaces;
 
 public interface ICategoryService
 {

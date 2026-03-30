@@ -1,6 +1,6 @@
-using Bill_App.Enums;
+using Bill_App_API.Enums;
 
-namespace Bill_App.Models;
+namespace Bill_App_API.Models;
 
 public class Transaction
 {

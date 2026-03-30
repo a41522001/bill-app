@@ -1,27 +1,26 @@
-using Bill_App.Models;
-using Bill_App.Options;
-using Bill_App.Services.Interfaces;
+using Bill_App_API.Options;
+using Bill_App_API.Interfaces;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 
-namespace Bill_App.Services;
+namespace Bill_App_API.Services;
 
 public class TokenService(IOptions<JwtOptions> options) : ITokenService
 {
     private readonly JwtOptions _jwt = options.Value;
 
-    public string GenerateAccessToken(User user)
+    public string GenerateAccessToken(string name, string email, Guid sub)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.Key));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var claims = new List<Claim>
         {
-            new("name", user.Name),
-            new("email", user.Email),
-            new("sub", user.Sub.ToString())
+            new("name", name),
+            new("email", email),
+            new("sub", sub.ToString())
         };
         var token = new JwtSecurityToken(
             issuer: _jwt.Issuer,

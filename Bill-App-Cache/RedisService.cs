@@ -6,19 +6,47 @@ namespace Bill_App_Cache.Services;
 public class RedisService(IConnectionMultiplexer redis) : IRedisService
 {
     private readonly IDatabase _db = redis.GetDatabase();
-
+    // 
     public async Task StringSetAsync(string key, string data)
         => await _db.StringSetAsync(key, data);
-
+    // 取得
     public async Task<string?> StringGetAsync(string key)
         => await _db.StringGetAsync(key);
-    
+    // 刪除User過期的Refresh Token ZSet
+    public async Task DeleteExpiredUserRefreshTokens(Guid userId)
+    {
+        var key = RedisKeys.UserRefreshTokens(userId);
+        double now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        await _db.SortedSetRemoveRangeByScoreAsync(key, double.NegativeInfinity, now);
+    }
+    // 刪除User的Refresh Token ZSet最舊一筆
+    public async Task<string?> PopOldestUserRefreshToken(Guid userId)
+    {
+        var key = RedisKeys.UserRefreshTokens(userId);
+        var result = await _db.SortedSetPopAsync(key, Order.Ascending);
+        return result?.Element.ToString();
+    }
+    // 取得User的Refresh Token ZSet數量
+    public async Task<int> GetUserRefreshTokenCount(Guid userId)
+    {
+        var key = RedisKeys.UserRefreshTokens(userId);
+        var count = await _db.SortedSetLengthAsync(key);
+        return (int)count;
+    }
+    // 設置User的Refresh Token ZSet
     public async Task SetUserRefreshToken(Guid userId, Guid refreshToken, DateTime expireAt)
     {
         var key = RedisKeys.UserRefreshTokens(userId);
         double score = new DateTimeOffset(expireAt).ToUnixTimeMilliseconds();
         await _db.SortedSetAddAsync(key, refreshToken.ToString(), score);
     }
+    // 刪除Refresh Token的Hash
+    public async Task DeleteRefreshToken(Guid refreshToken)
+    {
+        var key = RedisKeys.RefreshToken(refreshToken);
+        await _db.KeyDeleteAsync(key);
+    }
+    // 設置Refresh Token的Hash
     public async Task SetRefreshToken(Guid refreshToken, RefreshTokenHash data, DateTime expireAt)
     {
         var key = RedisKeys.RefreshToken(refreshToken);
@@ -26,6 +54,7 @@ public class RedisService(IConnectionMultiplexer redis) : IRedisService
         {
             new HashEntry("UserId", data.UserId.ToString()),
             new HashEntry("Expire", data.Expire),
+            new HashEntry("Email", data.Email),
             new HashEntry("Sub", data.Sub.ToString()),
             new HashEntry("Name", data.Name),
             new HashEntry("IsOld", data.IsOld.ToString())
@@ -33,6 +62,7 @@ public class RedisService(IConnectionMultiplexer redis) : IRedisService
         await _db.HashSetAsync(key, entries);
         await _db.KeyExpireAsync(key, expireAt - DateTime.UtcNow);
     }
+    // 取得Refresh Token的Hash
     public async Task<RefreshTokenHash?> GetRefreshToken(Guid refreshToken)
     {
         var key = RedisKeys.RefreshToken(refreshToken);
@@ -48,6 +78,7 @@ public class RedisService(IConnectionMultiplexer redis) : IRedisService
         return new RefreshTokenHash(
             UserId: Guid.Parse(dict["UserId"]),
             Expire: dict["Expire"],
+            Email: dict["Email"],
             Sub: Guid.Parse(dict["Sub"]),
             Name: dict["Name"],
             IsOld: Enum.Parse<IsOldType>(dict["IsOld"])

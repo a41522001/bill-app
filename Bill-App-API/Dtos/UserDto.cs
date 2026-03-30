@@ -1,4 +1,4 @@
-namespace Bill_App.Dtos;
+namespace Bill_App_API.Dtos;
 
 public record UserSignupRequest(
   string Name,

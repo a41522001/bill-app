@@ -17,6 +17,7 @@ public record UserSubHash(
 public record RefreshTokenHash(
     Guid UserId,
     string Expire,
+    string Email,
     Guid Sub,
     string Name,
     IsOldType IsOld 

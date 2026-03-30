@@ -1,4 +1,4 @@
-namespace Bill_App.Models;
+namespace Bill_App_API.Models;
 
 public class User
 {

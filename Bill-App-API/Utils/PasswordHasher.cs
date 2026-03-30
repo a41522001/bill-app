@@ -1,4 +1,4 @@
-namespace Bill_App.Utils;
+namespace Bill_App_API.Utils;
 
 public static class PasswordHasher
 {

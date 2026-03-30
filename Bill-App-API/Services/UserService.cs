@@ -1,15 +1,16 @@
-using Bill_App.Contexts;
-using Bill_App.Dtos;
-using Bill_App.Interfaces;
-using Bill_App.Models;
-using Bill_App.Services.Interfaces;
-using Bill_App.Utils;
+using Bill_App_API.Contexts;
+using Bill_App_API.Dtos;
+using Bill_App_API.Interfaces;
+using Bill_App_API.Models;
+using Bill_App_API.Utils;
+using Bill_App_API.Options;
 using Bill_App_Cache.Dtos;
 using Bill_App_Cache.Interface;
 using Microsoft.EntityFrameworkCore;
-namespace Bill_App.Services;
+using Microsoft.Extensions.Options;
+namespace Bill_App_API.Services;
 
-public class UserService(BillDbContext dbContext, IRedisService RedisService, ITokenService TokenService) : IUserService
+public class UserService(BillDbContext dbContext, IRedisService redisService, ITokenService tokenService, IOptions<MaxDeviceOptions> maxDeviceOptions) : IUserService
 {
     public async Task<bool> Signup(UserSignupRequest req)
     {
@@ -43,19 +44,40 @@ public class UserService(BillDbContext dbContext, IRedisService RedisService, IT
                     Email: user.Email,
                     Name: user.Name
                 );
+                
                 // 生成redis的user sub hash資訊 & zset ，過期時間為7天
                 var expireAt = DateTime.UtcNow.AddDays(7);
                 // 生成access token
-                var accessToken = TokenService.GenerateAccessToken(user);
+                var accessToken = tokenService.GenerateAccessToken(user.Name, user.Email, user.Sub);
                 // 生成refresh token
-                var refreshToken = TokenService.GenerateRefreshToken();
+                var refreshToken = tokenService.GenerateRefreshToken();
                 // 建立redis的user sub hash資訊
-                await RedisService.SetUserSubAsync(user.Sub, userSub);
+                await redisService.SetUserSubAsync(user.Sub, userSub);
                 // 建立redis的refresh token zset
-                await RedisService.SetUserRefreshToken(user.Id, refreshToken, expireAt);
+                var maxDevice = maxDeviceOptions.Value.MaxDevice;
+                // 刪除存在Zset已過期的Refresh Token
+                await redisService.DeleteExpiredUserRefreshTokens(user.Id);
+                // 查詢Zset目前的筆數
+                var count = await redisService.GetUserRefreshTokenCount(user.Id);
+                // 如果Zset的數量大於等於最大裝置數量就刪掉最舊的一個Refresh Token Hash的部分也要刪掉
+                if(count >= maxDevice)
+                {
+                    var oldRefreshToken = await redisService.PopOldestUserRefreshToken(user.Id);
+                    if(oldRefreshToken is not null)
+                    {
+                        await redisService.DeleteRefreshToken(Guid.Parse(oldRefreshToken));
+                    }
+                    else
+                    {
+                        // 如果沒有拿到最舊的Refresh Token，代表有異常，這邊可以選擇紀錄log或是其他處理方式
+                       
+                    }
+                }
+                await redisService.SetUserRefreshToken(user.Id, refreshToken, expireAt);
                 // 建立redis的user hash資訊
-                await RedisService.SetRefreshToken(refreshToken, new RefreshTokenHash(
+                await redisService.SetRefreshToken(refreshToken, new RefreshTokenHash(
                     UserId: user.Id,
+                    Email: user.Email,
                     Expire: expireAt.ToString("o"),
                     Sub: user.Sub,
                     Name: user.Name,
@@ -71,7 +93,7 @@ public class UserService(BillDbContext dbContext, IRedisService RedisService, IT
     }
     public async Task<Guid?> GetUserId(Guid sub)
     {
-        var result = await RedisService.GetUserSubAsync(sub);
+        var result = await redisService.GetUserSubAsync(sub);
         if (result is null)
         {
             var user = await dbContext.Users.FirstOrDefaultAsync(item => item.Sub == sub);

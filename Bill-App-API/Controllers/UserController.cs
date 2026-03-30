@@ -1,9 +1,9 @@
-using Bill_App.Contexts;
-using Bill_App.Dtos;
-using Bill_App.Interfaces;
+using Bill_App_API.Contexts;
+using Bill_App_API.Dtos;
+using Bill_App_API.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Bill_App.Controllers;
+namespace Bill_App_API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]

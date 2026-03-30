@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using Bill_App.Models;
-namespace Bill_App.Contexts;
+using Bill_App_API.Models;
+namespace Bill_App_API.Contexts;
 
 public class BillDbContext : DbContext
 {
