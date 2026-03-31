@@ -26,6 +26,12 @@ public class RedisService(IConnectionMultiplexer redis) : IRedisService
         var result = await _db.SortedSetPopAsync(key, Order.Ascending);
         return result?.Element.ToString();
     }
+    // 刪除User的Refresh Token ZSet(by member)
+    public async Task DeleteUserRefreshTokenByMember(Guid userId, Guid refreshToken)
+    {
+        var key = RedisKeys.UserRefreshTokens(userId);
+        await _db.SortedSetRemoveAsync(key, refreshToken.ToString());
+    }
     // 取得User的Refresh Token ZSet數量
     public async Task<int> GetUserRefreshTokenCount(Guid userId)
     {
@@ -84,6 +90,19 @@ public class RedisService(IConnectionMultiplexer redis) : IRedisService
             IsOld: Enum.Parse<IsOldType>(dict["IsOld"])
          );
     }
+    // 修改Refresh Token的Hash
+    public async Task UpdateRefreshToken(Guid refreshToken, string field, string data)
+    {
+        var key = RedisKeys.RefreshToken(refreshToken);
+        await _db.HashSetAsync(key, field, data);
+    }
+    // 修改Refresh Token的Hash過期時間
+    public async Task UpdateRefreshTokenExpire(Guid refreshToken, TimeSpan newExpiry)
+    {
+        var key = RedisKeys.RefreshToken(refreshToken);
+        await _db.KeyExpireAsync(key, newExpiry);
+    }
+    // 設置Sub的hash資訊
     public async Task SetUserSubAsync(Guid sub, UserSubHash data)
     {
         var key = RedisKeys.UserSub(sub);
@@ -95,6 +114,7 @@ public class RedisService(IConnectionMultiplexer redis) : IRedisService
         };
         await _db.HashSetAsync(key, entries);
     }
+    // 取得Sub的hash資訊
     public async Task<UserSubHash?> GetUserSubAsync(Guid sub)
     {
         var key = RedisKeys.UserSub(sub);

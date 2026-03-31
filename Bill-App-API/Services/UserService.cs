@@ -31,6 +31,23 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
         }
         return false;
     }
+    public async Task Logout(string refreshToken)
+    {
+        Guid refreshTokenGuid;
+        bool isTransformCorrect = Guid.TryParse(refreshToken, out refreshTokenGuid);
+        if(!isTransformCorrect)
+        {
+            return;
+        }
+        var uesrHash = await redisService.GetRefreshToken(refreshTokenGuid);
+        if(uesrHash is null)
+        {
+            return;
+        }
+        await redisService.DeleteUserRefreshTokenByMember(uesrHash.UserId, refreshTokenGuid);
+        await redisService.DeleteRefreshToken(refreshTokenGuid);
+        return;
+    }
     public async Task<UserLoginResponse?> Login(UserLoginRequest req)
     {
         var user = await dbContext.Users.FirstOrDefaultAsync(item => item.Email == req.Email);
@@ -49,31 +66,10 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
                 var expireAt = DateTime.UtcNow.AddDays(7);
                 // 生成access token
                 var accessToken = tokenService.GenerateAccessToken(user.Name, user.Email, user.Sub);
-                // 生成refresh token
-                var refreshToken = tokenService.GenerateRefreshToken();
                 // 建立redis的user sub hash資訊
                 await redisService.SetUserSubAsync(user.Sub, userSub);
-                // 建立redis的refresh token zset
-                var maxDevice = maxDeviceOptions.Value.MaxDevice;
-                // 刪除存在Zset已過期的Refresh Token
-                await redisService.DeleteExpiredUserRefreshTokens(user.Id);
-                // 查詢Zset目前的筆數
-                var count = await redisService.GetUserRefreshTokenCount(user.Id);
-                // 如果Zset的數量大於等於最大裝置數量就刪掉最舊的一個Refresh Token Hash的部分也要刪掉
-                if(count >= maxDevice)
-                {
-                    var oldRefreshToken = await redisService.PopOldestUserRefreshToken(user.Id);
-                    if(oldRefreshToken is not null)
-                    {
-                        await redisService.DeleteRefreshToken(Guid.Parse(oldRefreshToken));
-                    }
-                    else
-                    {
-                        // 如果沒有拿到最舊的Refresh Token，代表有異常，這邊可以選擇紀錄log或是其他處理方式
-                       
-                    }
-                }
-                await redisService.SetUserRefreshToken(user.Id, refreshToken, expireAt);
+                // 輪轉/產生 Refresh Token，並取得新的Refresh Token
+                var refreshToken = await RotateRefreshToken(user.Id, expireAt);
                 // 建立redis的user hash資訊
                 await redisService.SetRefreshToken(refreshToken, new RefreshTokenHash(
                     UserId: user.Id,
@@ -90,6 +86,34 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
             }
         }
         return null;
+    }
+    public async Task<Guid> RotateRefreshToken(Guid userId, DateTime expireAt)
+    {
+        // 生成refresh token
+        var refreshToken = tokenService.GenerateRefreshToken();
+        // 建立redis的refresh token zset
+        var maxDevice = maxDeviceOptions.Value.MaxDevice;
+        // 刪除存在Zset已過期的Refresh Token
+        await redisService.DeleteExpiredUserRefreshTokens(userId);
+        // 查詢Zset目前的筆數
+        var count = await redisService.GetUserRefreshTokenCount(userId);
+        // 如果Zset的數量大於等於最大裝置數量就刪掉最舊的一個Refresh Token Hash的部分也要刪掉
+        if (count >= maxDevice)
+        {
+            var oldRefreshToken = await redisService.PopOldestUserRefreshToken(userId);
+            if (oldRefreshToken is not null)
+            {
+                await redisService.DeleteRefreshToken(Guid.Parse(oldRefreshToken));
+            }
+            else
+            {
+                // 如果沒有拿到最舊的Refresh Token，代表有異常，這邊可以選擇紀錄log或是其他處理方式
+
+            }
+        }
+        // 設置新的Refresh Token Zset
+        await redisService.SetUserRefreshToken(userId, refreshToken, expireAt);
+        return refreshToken;
     }
     public async Task<Guid?> GetUserId(Guid sub)
     {

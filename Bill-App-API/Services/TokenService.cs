@@ -34,11 +34,6 @@ public class TokenService(IOptions<JwtOptions> options) : ITokenService
 
     public Guid GenerateRefreshToken() => Guid.NewGuid();
 
-    public bool ShouldRefresh(string token)
-    {
-        throw new NotImplementedException();
-    }
-
     public ClaimsPrincipal? ValidateAccessToken(string token)
     {
         try
@@ -50,11 +45,12 @@ public class TokenService(IOptions<JwtOptions> options) : ITokenService
             {
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = key,
-                ValidateIssuer = false,
-                ValidateAudience = false,
-                ClockSkew = TimeSpan.Zero  // 不給緩衝時間，過期就是過期
+                ValidateIssuer = true,
+                ValidIssuer = _jwt.Issuer,
+                ValidateAudience = true,
+                ValidAudience = _jwt.Audience, 
+                ClockSkew = TimeSpan.Zero
             }, out _);
-
             return result;
         }
         catch

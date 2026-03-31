@@ -8,7 +8,7 @@ public class AccessTokenMiddleware(RequestDelegate next)
     public async Task InvokeAsync(HttpContext context, ITokenService tokenService, IRedisService redisService, IUserService userService)
     {
         // 不處理登入和註冊的請求
-        string[] witheList = {"/api/user/login", "/api/user/signup" }; 
+        string[] witheList = { "/api/user/login", "/api/user/signup", "/api/user/logout" };
         var path = context.Request.Path;
         if(witheList.Contains(path))
         {

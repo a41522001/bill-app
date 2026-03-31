@@ -4,7 +4,9 @@ namespace Bill_App_API.Interfaces;
 
 public interface IUserService
 {
-  Task<bool> Signup(UserSignupRequest req);
-  Task<UserLoginResponse?> Login(UserLoginRequest req);
-  Task<Guid?> GetUserId(Guid sub);
+    Task<bool> Signup(UserSignupRequest req);
+    Task<UserLoginResponse?> Login(UserLoginRequest req);
+    Task<Guid> RotateRefreshToken(Guid userId, DateTime expireAt);
+    Task<Guid?> GetUserId(Guid sub);
+    Task Logout(string refreshToken);
 }

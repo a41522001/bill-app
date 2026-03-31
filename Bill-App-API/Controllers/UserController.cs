@@ -1,4 +1,3 @@
-using Bill_App_API.Contexts;
 using Bill_App_API.Dtos;
 using Bill_App_API.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -7,7 +6,7 @@ namespace Bill_App_API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class UserController(ILogger<UserController> logger, BillDbContext dbContext, IUserService userService) : ControllerBase
+public class UserController(ILogger<UserController> logger, IUserService userService) : ControllerBase
 {
     /// <summary>
     /// 註冊
@@ -35,21 +34,56 @@ public class UserController(ILogger<UserController> logger, BillDbContext dbCont
         var tokens = await userService.Login(req);
         if (tokens is not null)
         {
+            // TODO: 之後SameSite要改成SameSiteMode.Strict
             Response.Cookies.Append("accessToken", tokens.AccessToken, new CookieOptions { 
                 HttpOnly = true,
                 Secure = true,
+                SameSite = SameSiteMode.None,
                 Expires = DateTimeOffset.UtcNow.AddMinutes(15)
             });
+            // TODO: 之後SameSite要改成SameSiteMode.Strict
             Response.Cookies.Append("refreshToken", tokens.RefreshToken.ToString(), new CookieOptions
             {
                 HttpOnly = true,
                 Secure = true,
+                SameSite = SameSiteMode.None,
                 Expires = DateTimeOffset.UtcNow.AddDays(7)
             });
             return Ok("登入成功");
         }
         return BadRequest("登入失敗");
 
+    }
+    /// <summary>
+    /// 登出
+    /// </summary>
+    /// <param></param>
+    /// <returns></returns>
+    [HttpPost("logout")]
+    public async Task<ActionResult> Logout()
+    {
+        var refreshToken = Request.Cookies["refreshToken"];
+        if(refreshToken is not null)
+        {
+            await userService.Logout(refreshToken);
+        }
+        // TODO: 之後SameSite要改成SameSiteMode.Strict
+        Response.Cookies.Delete("accessToken", new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.None,
+            Expires = DateTimeOffset.UtcNow.AddDays(7)
+        });
+        // TODO: 之後SameSite要改成SameSiteMode.Strict
+        Response.Cookies.Delete("refreshToken", new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.None,
+            Expires = DateTimeOffset.UtcNow.AddDays(7)
+        });
+        return Ok("登出成功");
     }
     [HttpGet("profile")]
     public async Task<ActionResult> Profile()
