@@ -23,17 +23,17 @@ builder.Services.AddDbContext<BillDbContext>(options =>
 // Options
 builder.Services.Configure<JwtOptions>(options =>
 {
-    options.Key = Environment.GetEnvironmentVariable("JWT__KEY")!;
-    options.Issuer = Environment.GetEnvironmentVariable("JWT__ISSUER")!;
-    options.Audience = Environment.GetEnvironmentVariable("JWT__AUDIENCE")!;
-    options.DurationInMinutes = int.Parse(
-        Environment.GetEnvironmentVariable("JWT__DURATION_IN_MINUTES") ?? "15");
+  options.Key = Environment.GetEnvironmentVariable("JWT__KEY")!;
+  options.Issuer = Environment.GetEnvironmentVariable("JWT__ISSUER")!;
+  options.Audience = Environment.GetEnvironmentVariable("JWT__AUDIENCE")!;
+  options.DurationInMinutes = int.Parse(
+      Environment.GetEnvironmentVariable("JWT__DURATION_IN_MINUTES") ?? "15");
 });
 //
 builder.Services.Configure<MaxDeviceOptions>(options =>
 {
-    options.MaxDevice = int.Parse(
-        Environment.GetEnvironmentVariable("MAX_DEVICE") ?? "5");
+  options.MaxDevice = int.Parse(
+      Environment.GetEnvironmentVariable("MAX_DEVICE") ?? "5");
 });
 // CORS
 
@@ -47,6 +47,13 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(
     ConnectionMultiplexer.Connect("localhost:6379"));
 builder.Services.AddScoped<IRedisService, RedisService>();
 
+// Filter
+builder.Services.AddControllers(options =>
+{
+  options.Filters.Add<Bill_App_API.Filters.LogActionFilter>();
+  options.Filters.Add<Bill_App_API.Filters.GlobalExceptionFilter>();
+  options.Filters.Add<Bill_App_API.Filters.ResultWrapFilter>();
+});
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
