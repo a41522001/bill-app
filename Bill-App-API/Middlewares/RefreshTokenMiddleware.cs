@@ -1,4 +1,4 @@
-﻿using Bill_App_API.Interfaces;
+using Bill_App_API.Interfaces;
 using Bill_App_API.Options;
 using Bill_App_Cache.Dtos;
 using Bill_App_Cache.Interface;
@@ -13,13 +13,16 @@ public class RefreshTokenMiddleware(RequestDelegate next, IOptions<JwtOptions> j
     private readonly UserCacheOptions _userCacheOptions = userCacheOptions.Value;
     public async Task InvokeAsync(HttpContext context, ITokenService tokenService, IRedisService redisService, IUserService userService)
     {
-        // 不處理登入和註冊的請求
-        string[] whiteList = { "/api/user/login", "/api/user/signup", "/api/user/logout" };
+        // 不處理Middleware的白名單 直接放行
+        string[] whiteList = { "/api/user/login", "/api/user/signup", "/api/user/logout", "/api/user/verifyEmail" };
         var path = context.Request.Path;
-        if (whiteList.Contains(path))
+        foreach (var item in whiteList)
         {
-            await next(context);
-            return;
+            if (path.StartsWithSegments(item))
+            {
+                await next(context);
+                return;
+            }
         }
         var userId = context.Items["userId"];
         if(userId is not null)

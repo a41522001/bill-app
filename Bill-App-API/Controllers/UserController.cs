@@ -12,6 +12,7 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
 {
     private readonly JwtOptions _jwtOptions = jwtOptions.Value;
     private readonly RefreshTokenOptions _refreshTokenOptions = refreshTokenOptions.Value;
+    
     /// <summary>
     /// 註冊
     /// </summary>
@@ -23,7 +24,7 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
         var isOk = await userService.Signup(req);
         if (isOk)
         {
-            return Ok("註冊成功");
+            return Ok("註冊成功請至信箱收取驗證信");
         }
         return BadRequest("註冊失敗");
     }
@@ -36,27 +37,22 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
     public async Task<ActionResult> Login([FromBody] UserLoginRequest req)
     {
         var tokens = await userService.Login(req);
-        if (tokens is not null)
+        // TODO: 之後SameSite要改成SameSiteMode.Strict
+        Response.Cookies.Append("accessToken", tokens.AccessToken, new CookieOptions { 
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.None,
+            Expires = DateTimeOffset.UtcNow.AddMinutes(_jwtOptions.DurationInMinutes)
+        });
+        // TODO: 之後SameSite要改成SameSiteMode.Strict
+        Response.Cookies.Append("refreshToken", tokens.RefreshToken.ToString(), new CookieOptions
         {
-            // TODO: 之後SameSite要改成SameSiteMode.Strict
-            Response.Cookies.Append("accessToken", tokens.AccessToken, new CookieOptions { 
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.None,
-                Expires = DateTimeOffset.UtcNow.AddMinutes(_jwtOptions.DurationInMinutes)
-            });
-            // TODO: 之後SameSite要改成SameSiteMode.Strict
-            Response.Cookies.Append("refreshToken", tokens.RefreshToken.ToString(), new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.None,
-                Expires = DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDay)
-            });
-            return Ok("登入成功");
-        }
-        return BadRequest("登入失敗");
-
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.None,
+            Expires = DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDay)
+        });
+        return Ok("登入成功");
     }
     /// <summary>
     /// 登出
@@ -89,6 +85,10 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
         });
         return Ok("登出成功");
     }
+    /// <summary>
+    /// 取得Userinfo(測試)
+    /// </summary>
+    /// <returns></returns>
     [HttpGet("profile")]
     public async Task<ActionResult> Profile()
     {
@@ -99,5 +99,19 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
         //}
         //return Ok(userId);
         return Ok();
+    }
+    /// <summary>
+    /// 驗證Email
+    /// </summary>
+    /// <returns></returns>
+    [HttpGet("verifyEmail/{token:guid}")]
+    public async Task<ActionResult> VerifyEmail(Guid token)
+    {
+        var isVerify = await userService.VerifyEmail(token);
+        if(isVerify)
+        {
+            return Ok("驗證成功");
+        }
+        return BadRequest("驗證失敗");
     }
 }

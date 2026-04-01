@@ -1,4 +1,4 @@
-﻿using Bill_App_Cache.Dtos;
+using Bill_App_Cache.Dtos;
 using Bill_App_Cache.Interface;
 using Bill_App_Cache.Keys;
 using StackExchange.Redis;
@@ -135,5 +135,28 @@ public class RedisService(IConnectionMultiplexer redis) : IRedisService
             Email: dict["Email"],
             Name: dict["Name"]
         );
+    }
+    // 設置Email驗證的UserId(By random token)
+    public async Task SetEmailVerifyTokenAsync(Guid token, Guid userId, TimeSpan ttl)
+    {
+        var key = RedisKeys.EmailVerify(token);
+        await _db.StringSetAsync(key, userId.ToString(), ttl);
+    }
+    // 取得Email驗證的UserId(By random token)
+    public async Task<Guid?> GetEmailVerifyUserId(Guid token)
+    {
+        var key = RedisKeys.EmailVerify(token);
+        var result = await _db.StringGetAsync(key);
+        if (result.IsNull)
+        {
+            return null;
+        }
+        return Guid.Parse(result.ToString()); 
+    }
+    // 刪除Email驗證的UserId(By random token)
+    public async Task DeleteEmailVerifyTokenAsync(Guid token)
+    {
+        var key = RedisKeys.EmailVerify(token);
+        await _db.KeyDeleteAsync(key);
     }
 }

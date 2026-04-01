@@ -5,28 +5,34 @@ public interface IRedisService
 {
     Task StringSetAsync(string key, string data);
     Task<string?> StringGetAsync(string key);
-    // �R��User�L����Refresh Token ZSet
+    // 刪除User過期的Refresh Token ZSet
     Task DeleteExpiredUserRefreshTokens(Guid userId);
-    // ���oUser��Refresh Token ZSet�ƶq
+    // 取得User的Refresh Token ZSet數量
     Task<int> GetUserRefreshTokenCount(Guid userId);
-    // �]�mUser��Refresh Token ZSet
+    // 設置User的Refresh Token ZSet
     Task SetUserRefreshToken(Guid userId, Guid refreshToken, DateTime expireAt);
-    // �R��User��Refresh Token ZSet���¤@��
+    // 刪除User的Refresh Token ZSet最舊一筆
     Task<string?> PopOldestUserRefreshToken(Guid userId);
-    // �R��User��Refresh Token ZSet(by member)
+    // 刪除User的Refresh Token ZSet(by member)
     Task DeleteUserRefreshTokenByMember(Guid userId, Guid refreshToken);
-    // �R��Refresh Token��Hash
+    // 刪除Refresh Token的Hash
     Task DeleteRefreshToken(Guid refreshToken);
-    // ���oRefresh Token��Hash
+    // 取得Refresh Token的Hash
     Task<RefreshTokenHash?> GetRefreshToken(Guid refreshToken);
-    // �ק�Refresh Token��Hash
+    // 修改Refresh Token的Hash過期時間
     Task UpdateRefreshToken(Guid refreshToken, string field, string data);
-    // �ק�Refresh Token��Hash�L���ɶ�
+    // 修改Refresh Token的Hash過期時間
     Task UpdateRefreshTokenExpire(Guid refreshToken, TimeSpan newExpiry);
-    // �]�mRefresh Token��Hash
+    // 設置Refresh Token的Hash
     Task SetRefreshToken(Guid refreshToken, RefreshTokenHash data, DateTime expireAt);
-    // �]�mSub��hash��T
+    // 設置Sub的hash資訊
     Task SetUserSubAsync(Guid sub, UserSubHash data, TimeSpan ttl);
-    // ���oSub��hash��T
+    // 取得Sub的hash資訊
     Task<UserSubHash?> GetUserSubAsync(Guid sub);
+    // 設置Email驗證的UserId(By random token)
+    Task SetEmailVerifyTokenAsync(Guid token, Guid userId, TimeSpan ttl);
+    // 取得Email驗證的UserId(By random token)
+    Task<Guid?> GetEmailVerifyUserId(Guid token);
+    // 刪除Email驗證的UserId(By random token)
+    Task DeleteEmailVerifyTokenAsync(Guid token);
 }

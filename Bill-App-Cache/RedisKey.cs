@@ -14,4 +14,6 @@ public static class RedisKeys
 
     public static string UserSub(Guid sub)
         => $"user:sub#{sub}";
+    public static string EmailVerify(Guid token)
+        => $"email:verify#{token}";
 }

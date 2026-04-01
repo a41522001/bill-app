@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.2.11415.280 d18.0
+VisualStudioVersion = 18.2.11415.280
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bill-App-Cache", "Bill-App-Cache\Bill-App-Cache.csproj", "{E1B1FAFB-FDBF-491A-92A0-837DE2048A0B}"
 EndProject
@@ -9,6 +9,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bill-App-API", "Bill-App-AP
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "方案項目", "方案項目", "{1445CD8C-6A56-4A73-BA16-5B071D9274A9}"
 	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
 		.env = .env
 		.gitignore = .gitignore
 		CLAUDE.md = CLAUDE.md
@@ -52,5 +53,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B627AABA-0BFA-46DF-A351-42ACBF40B1D9}
 	EndGlobalSection
 EndGlobal

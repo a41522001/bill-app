@@ -46,9 +46,21 @@ builder.Services.Configure<RefreshTokenOptions>(options =>
 // User Cache Options
 builder.Services.Configure<UserCacheOptions>(options =>
 {
-  options.TtlInHours = int.Parse(
-      Environment.GetEnvironmentVariable("USER_CACHE__TTL_IN_HOURS") ?? "24");
+    options.TtlInHours = int.Parse(
+        Environment.GetEnvironmentVariable("USER_CACHE__TTL_IN_HOURS") ?? "24");
 });
+// User Verify Email Options
+builder.Services.Configure<UserVerifyEmailOptions>(options =>
+{
+    options.TtlInHours = int.Parse(
+        Environment.GetEnvironmentVariable("USER_VERIFY_CACHE__TTL_IN_HOURS") ?? "1");
+});
+// App Options
+builder.Services.Configure<AppOptions>(options =>
+{
+    options.Domain = Environment.GetEnvironmentVariable("APP_DOMAIN") ?? "";
+});
+
 // #endregion
 
 // CORS
