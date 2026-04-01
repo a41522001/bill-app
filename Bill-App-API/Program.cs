@@ -10,7 +10,6 @@ using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
 Env.Load("../.env");
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen();
 // Database
@@ -20,7 +19,8 @@ var dbName = Environment.GetEnvironmentVariable("DB_NAME");
 var connectionString = $"Host=localhost;Port=5432;Database={dbName};Username={dbUser};Password={dbPassword}";
 builder.Services.AddDbContext<BillDbContext>(options =>
     options.UseNpgsql(connectionString));
-// Options
+// #region Options
+// JWT Options
 builder.Services.Configure<JwtOptions>(options =>
 {
   options.Key = Environment.GetEnvironmentVariable("JWT__KEY")!;
@@ -29,12 +29,28 @@ builder.Services.Configure<JwtOptions>(options =>
   options.DurationInMinutes = int.Parse(
       Environment.GetEnvironmentVariable("JWT__DURATION_IN_MINUTES") ?? "15");
 });
-//
+// 裝置 Options
 builder.Services.Configure<MaxDeviceOptions>(options =>
 {
   options.MaxDevice = int.Parse(
       Environment.GetEnvironmentVariable("MAX_DEVICE") ?? "5");
 });
+// Refresh Token Options
+builder.Services.Configure<RefreshTokenOptions>(options =>
+{
+  options.DurationInDay = int.Parse(
+      Environment.GetEnvironmentVariable("REFRESH_TOKEN__DURATION_IN_DAY") ?? "7");
+  options.OldTokenGraceInSeconds = int.Parse(
+      Environment.GetEnvironmentVariable("REFRESH_TOKEN__OLD_TOKEN_GRACE_IN_SECONDS") ?? "15");
+});
+// User Cache Options
+builder.Services.Configure<UserCacheOptions>(options =>
+{
+  options.TtlInHours = int.Parse(
+      Environment.GetEnvironmentVariable("USER_CACHE__TTL_IN_HOURS") ?? "24");
+});
+// #endregion
+
 // CORS
 
 // Dependence Injection

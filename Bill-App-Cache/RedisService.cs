@@ -103,7 +103,7 @@ public class RedisService(IConnectionMultiplexer redis) : IRedisService
         await _db.KeyExpireAsync(key, newExpiry);
     }
     // 設置Sub的hash資訊
-    public async Task SetUserSubAsync(Guid sub, UserSubHash data)
+    public async Task SetUserSubAsync(Guid sub, UserSubHash data, TimeSpan ttl)
     {
         var key = RedisKeys.UserSub(sub);
         var entries = new HashEntry[]
@@ -113,6 +113,7 @@ public class RedisService(IConnectionMultiplexer redis) : IRedisService
             new HashEntry("Name", data.Name),
         };
         await _db.HashSetAsync(key, entries);
+        await _db.KeyExpireAsync(key, ttl);
     }
     // 取得Sub的hash資訊
     public async Task<UserSubHash?> GetUserSubAsync(Guid sub)

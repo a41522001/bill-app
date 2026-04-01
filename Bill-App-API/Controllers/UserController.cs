@@ -1,13 +1,17 @@
 using Bill_App_API.Dtos;
 using Bill_App_API.Interfaces;
+using Bill_App_API.Options;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace Bill_App_API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class UserController(ILogger<UserController> logger, IUserService userService) : ControllerBase
+public class UserController(ILogger<UserController> logger, IUserService userService, IOptions<JwtOptions> jwtOptions, IOptions<RefreshTokenOptions> refreshTokenOptions) : ControllerBase
 {
+    private readonly JwtOptions _jwtOptions = jwtOptions.Value;
+    private readonly RefreshTokenOptions _refreshTokenOptions = refreshTokenOptions.Value;
     /// <summary>
     /// 註冊
     /// </summary>
@@ -39,7 +43,7 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
                 HttpOnly = true,
                 Secure = true,
                 SameSite = SameSiteMode.None,
-                Expires = DateTimeOffset.UtcNow.AddMinutes(15)
+                Expires = DateTimeOffset.UtcNow.AddMinutes(_jwtOptions.DurationInMinutes)
             });
             // TODO: 之後SameSite要改成SameSiteMode.Strict
             Response.Cookies.Append("refreshToken", tokens.RefreshToken.ToString(), new CookieOptions
@@ -47,7 +51,7 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
                 HttpOnly = true,
                 Secure = true,
                 SameSite = SameSiteMode.None,
-                Expires = DateTimeOffset.UtcNow.AddDays(7)
+                Expires = DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDay)
             });
             return Ok("登入成功");
         }
@@ -73,7 +77,7 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
             HttpOnly = true,
             Secure = true,
             SameSite = SameSiteMode.None,
-            Expires = DateTimeOffset.UtcNow.AddDays(7)
+            Expires = DateTimeOffset.UtcNow.AddMinutes(_jwtOptions.DurationInMinutes)
         });
         // TODO: 之後SameSite要改成SameSiteMode.Strict
         Response.Cookies.Delete("refreshToken", new CookieOptions
@@ -81,7 +85,7 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
             HttpOnly = true,
             Secure = true,
             SameSite = SameSiteMode.None,
-            Expires = DateTimeOffset.UtcNow.AddDays(7)
+            Expires = DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDay)
         });
         return Ok("登出成功");
     }

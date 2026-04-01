@@ -5,28 +5,28 @@ public interface IRedisService
 {
     Task StringSetAsync(string key, string data);
     Task<string?> StringGetAsync(string key);
-    // §R°£User¹L´ÁªºRefresh Token ZSet
+    // ï¿½Rï¿½ï¿½Userï¿½Lï¿½ï¿½ï¿½ï¿½Refresh Token ZSet
     Task DeleteExpiredUserRefreshTokens(Guid userId);
-    // ¨ú±oUserªºRefresh Token ZSet¼Æ¶q
+    // ï¿½ï¿½ï¿½oUserï¿½ï¿½Refresh Token ZSetï¿½Æ¶q
     Task<int> GetUserRefreshTokenCount(Guid userId);
-    // ³]¸mUserªºRefresh Token ZSet
+    // ï¿½]ï¿½mUserï¿½ï¿½Refresh Token ZSet
     Task SetUserRefreshToken(Guid userId, Guid refreshToken, DateTime expireAt);
-    // §R°£UserªºRefresh Token ZSet³ÌÂÂ¤@µ§
+    // ï¿½Rï¿½ï¿½Userï¿½ï¿½Refresh Token ZSetï¿½ï¿½ï¿½Â¤@ï¿½ï¿½
     Task<string?> PopOldestUserRefreshToken(Guid userId);
-    // §R°£UserªºRefresh Token ZSet(by member)
+    // ï¿½Rï¿½ï¿½Userï¿½ï¿½Refresh Token ZSet(by member)
     Task DeleteUserRefreshTokenByMember(Guid userId, Guid refreshToken);
-    // §R°£Refresh TokenªºHash
+    // ï¿½Rï¿½ï¿½Refresh Tokenï¿½ï¿½Hash
     Task DeleteRefreshToken(Guid refreshToken);
-    // ¨ú±oRefresh TokenªºHash
+    // ï¿½ï¿½ï¿½oRefresh Tokenï¿½ï¿½Hash
     Task<RefreshTokenHash?> GetRefreshToken(Guid refreshToken);
-    // ­×§ïRefresh TokenªºHash
+    // ï¿½×§ï¿½Refresh Tokenï¿½ï¿½Hash
     Task UpdateRefreshToken(Guid refreshToken, string field, string data);
-    // ­×§ïRefresh TokenªºHash¹L´Á®É¶¡
+    // ï¿½×§ï¿½Refresh Tokenï¿½ï¿½Hashï¿½Lï¿½ï¿½ï¿½É¶ï¿½
     Task UpdateRefreshTokenExpire(Guid refreshToken, TimeSpan newExpiry);
-    // ³]¸mRefresh TokenªºHash
+    // ï¿½]ï¿½mRefresh Tokenï¿½ï¿½Hash
     Task SetRefreshToken(Guid refreshToken, RefreshTokenHash data, DateTime expireAt);
-    // ³]¸mSubªºhash¸ê°T
-    Task SetUserSubAsync(Guid sub, UserSubHash data);
-    // ¨ú±oSubªºhash¸ê°T
+    // ï¿½]ï¿½mSubï¿½ï¿½hashï¿½ï¿½T
+    Task SetUserSubAsync(Guid sub, UserSubHash data, TimeSpan ttl);
+    // ï¿½ï¿½ï¿½oSubï¿½ï¿½hashï¿½ï¿½T
     Task<UserSubHash?> GetUserSubAsync(Guid sub);
 }

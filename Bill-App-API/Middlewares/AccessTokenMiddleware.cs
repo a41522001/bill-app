@@ -1,16 +1,21 @@
 ﻿using Bill_App_API.Interfaces;
+using Bill_App_API.Options;
 using Bill_App_Cache.Dtos;
 using Bill_App_Cache.Interface;
+using Microsoft.Extensions.Options;
 namespace Bill_App_API.Middlewares;
 
-public class AccessTokenMiddleware(RequestDelegate next)
+public class AccessTokenMiddleware(RequestDelegate next, IOptions<JwtOptions> jwtOptions, IOptions<RefreshTokenOptions> refreshTokenOptions, IOptions<UserCacheOptions> userCacheOptions)
 {
+    private readonly JwtOptions _jwtOptions = jwtOptions.Value;
+    private readonly RefreshTokenOptions _refreshTokenOptions = refreshTokenOptions.Value;
+    private readonly UserCacheOptions _userCacheOptions = userCacheOptions.Value;
     public async Task InvokeAsync(HttpContext context, ITokenService tokenService, IRedisService redisService, IUserService userService)
     {
         // 不處理登入和註冊的請求
-        string[] witheList = { "/api/user/login", "/api/user/signup", "/api/user/logout" };
+        string[] whiteList = { "/api/user/login", "/api/user/signup", "/api/user/logout" };
         var path = context.Request.Path;
-        if(witheList.Contains(path))
+        if(whiteList.Contains(path))
         {
             await next(context);
             return;
@@ -27,6 +32,22 @@ public class AccessTokenMiddleware(RequestDelegate next)
                 var name = accessTokenValidatedResult.FindFirst("name")?.Value;
                 if(subString is null || email is null || name is null)
                 {
+                    // TODO: 之後SameSite要改成SameSiteMode.Strict
+                    context.Response.Cookies.Delete("accessToken", new CookieOptions
+                    {
+                        HttpOnly = true,
+                        Secure = true,
+                        SameSite = SameSiteMode.None,
+                        Expires = DateTimeOffset.UtcNow.AddMinutes(_jwtOptions.DurationInMinutes)
+                    });
+                    // TODO: 之後SameSite要改成SameSiteMode.Strict
+                    context.Response.Cookies.Delete("refreshToken", new CookieOptions
+                    {
+                        HttpOnly = true,
+                        Secure = true,
+                        SameSite = SameSiteMode.None,
+                        Expires = DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDay)
+                    });
                     // TODO: 暫時先這樣，之後可以改成回傳401
                     throw new Exception("Invalid token");
                 }
@@ -42,10 +63,26 @@ public class AccessTokenMiddleware(RequestDelegate next)
                             UserId: (Guid)userId,
                             Email: email,
                             Name: name
-                        ));
+                        ), TimeSpan.FromHours(_userCacheOptions.TtlInHours));
                     }
                     else
                     {
+                        // TODO: 之後SameSite要改成SameSiteMode.Strict
+                        context.Response.Cookies.Delete("accessToken", new CookieOptions
+                        {
+                            HttpOnly = true,
+                            Secure = true,
+                            SameSite = SameSiteMode.None,
+                            Expires = DateTimeOffset.UtcNow.AddMinutes(_jwtOptions.DurationInMinutes)
+                        });
+                        // TODO: 之後SameSite要改成SameSiteMode.Strict
+                        context.Response.Cookies.Delete("refreshToken", new CookieOptions
+                        {
+                            HttpOnly = true,
+                            Secure = true,
+                            SameSite = SameSiteMode.None,
+                            Expires = DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDay)
+                        });
                         // TODO: 暫時先這樣，之後可以改成回傳401
                         throw new Exception("Can't fetch userId");
                     }

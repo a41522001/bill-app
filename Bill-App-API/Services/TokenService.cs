@@ -8,13 +8,13 @@ using System.Text;
 
 namespace Bill_App_API.Services;
 
-public class TokenService(IOptions<JwtOptions> options) : ITokenService
+public class TokenService(IOptions<JwtOptions> jwtOptions) : ITokenService
 {
-    private readonly JwtOptions _jwt = options.Value;
+    private readonly JwtOptions _jwtOptions = jwtOptions.Value;
 
     public string GenerateAccessToken(string name, string email, Guid sub)
     {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.Key));
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.Key));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var claims = new List<Claim>
         {
@@ -23,10 +23,10 @@ public class TokenService(IOptions<JwtOptions> options) : ITokenService
             new("sub", sub.ToString())
         };
         var token = new JwtSecurityToken(
-            issuer: _jwt.Issuer,
-            audience: _jwt.Audience,
+            issuer: _jwtOptions.Issuer,
+            audience: _jwtOptions.Audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(_jwt.DurationInMinutes),
+            expires: DateTime.UtcNow.AddMinutes(_jwtOptions.DurationInMinutes),
             signingCredentials: creds
         );
         return new JwtSecurityTokenHandler().WriteToken(token);
@@ -40,15 +40,15 @@ public class TokenService(IOptions<JwtOptions> options) : ITokenService
         {
             var handler = new JwtSecurityTokenHandler();
             handler.MapInboundClaims = false;
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.Key));
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.Key));
             var result = handler.ValidateToken(token, new TokenValidationParameters
             {
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = key,
                 ValidateIssuer = true,
-                ValidIssuer = _jwt.Issuer,
+                ValidIssuer = _jwtOptions.Issuer,
                 ValidateAudience = true,
-                ValidAudience = _jwt.Audience, 
+                ValidAudience = _jwtOptions.Audience, 
                 ClockSkew = TimeSpan.Zero
             }, out _);
             return result;

@@ -39,24 +39,25 @@ dotnet ef database update --project Bill-App-API
 
 ```
 Bill-App-API/
-├── Controllers/    # HTTP endpoints
+├── Controllers/    # HTTP endpoints (UserController, CategoryController)
 ├── Services/       # Business logic (UserService, TokenService, CategoryService)
-│   └── Interfaces/ # Service contracts
+│   └── Interfaces/ # Service contracts (IUserService, ITokenService, ICategoryService)
 ├── Middlewares/     # AccessTokenMiddleware, RefreshTokenMiddleware
-├── Options/        # JwtOptions, MaxDeviceOptions (Options pattern)
+├── Filters/        # LogActionFilter, GlobalExceptionFilter, ResultWrapFilter
+├── Options/        # JwtOptions, MaxDeviceOptions, RefreshTokenOptions, UserCacheOptions
 ├── Models/         # EF Core entities
-├── Dtos/           # Request/Response records
+├── Dtos/           # Request/Response records + ResponseWrap<T>
 ├── Enums/          # TransactionTypeEnum (Income=0, Expense=1)
 ├── Contexts/       # BillDbContext
 ├── Utils/          # PasswordHasher (BCrypt wrapper)
 ├── Migrations/     # EF Core migrations
-└── Program.cs      # DI registration & middleware pipeline
+└── Program.cs      # DI registration, filters & middleware pipeline
 
-Bill-App-Cache/
-├── IRedisService.cs    # Redis service interface
-├── RedisService.cs     # Redis service implementation
-├── RedisDto.cs         # Redis data records (UserSubHash, RefreshTokenHash, IsOldType)
-└── RedisKey.cs         # Redis key patterns (RedisKeys static class)
+Bill-App-Cache/  (namespace: Bill_App_Cache)
+├── IRedisService.cs    # Redis service interface (Bill_App_Cache.Interface)
+├── RedisService.cs     # Redis service implementation (Bill_App_Cache.Services)
+├── RedisDto.cs         # Redis data records (Bill_App_Cache.Dtos)
+└── RedisKey.cs         # Redis key patterns (Bill_App_Cache.Keys)
 ```
 
 ## Architecture & Conventions
@@ -70,7 +71,7 @@ Bill-App-Cache/
 - **Async pattern**: All I/O operations must be async (`Task<T>`)
 - **EF Core**: Code-first approach with explicit migrations
 - **Nullable reference types**: Enabled project-wide
-- **Options pattern**: Strongly-typed config via `IOptions<T>` (JwtOptions, MaxDeviceOptions)
+- **Options pattern**: Strongly-typed config via `IOptions<T>` (JwtOptions, MaxDeviceOptions, RefreshTokenOptions, UserCacheOptions)
 
 ## Authentication Flow
 
@@ -78,8 +79,20 @@ Bill-App-Cache/
 
 | Token | Type | Lifetime | Storage |
 |-------|------|----------|---------|
-| Access Token | JWT (HMAC SHA-256) | Configurable via env | HttpOnly + Secure cookie |
-| Refresh Token | GUID | 7 days | HttpOnly + Secure cookie + Redis |
+| Access Token | JWT (HMAC SHA-256) | `JWT__DURATION_IN_MINUTES` (default: 15) | HttpOnly + Secure cookie |
+| Refresh Token | GUID | `REFRESH_TOKEN__DURATION_IN_DAY` (default: 7) | HttpOnly + Secure cookie + Redis |
+
+### Token Lifetime Configuration (Options Pattern)
+
+| Options Class | Env Variable | Default | Description |
+|---------------|-------------|---------|-------------|
+| `JwtOptions` | `JWT__DURATION_IN_MINUTES` | 15 | Access Token (JWT) 有效分鐘數 |
+| `RefreshTokenOptions` | `REFRESH_TOKEN__DURATION_IN_DAY` | 7 | Refresh Token 有效天數 |
+| `RefreshTokenOptions` | `REFRESH_TOKEN__OLD_TOKEN_GRACE_IN_SECONDS` | 15 | 舊 RT 寬限秒數（併發請求容錯） |
+| `UserCacheOptions` | `USER_CACHE__TTL_IN_HOURS` | 24 | UserSub Redis Hash TTL（安全網，搭配 write-through 更新） |
+| `MaxDeviceOptions` | `MAX_DEVICE` | 5 | 每位用戶最大同時登入裝置數 |
+
+**Middleware 注入規則**：`IOptions<T>` 是 Singleton，放 constructor；Scoped 服務（ITokenService、IRedisService、IUserService）放 `InvokeAsync` 參數。
 
 ### Middleware Pipeline
 
@@ -144,7 +157,10 @@ DB_NAME=<database name>
 JWT__KEY=<at least 32 characters>
 JWT__ISSUER=<issuer name>
 JWT__AUDIENCE=<audience name>
-JWT__DURATION_IN_MINUTES=<access token lifetime>
+JWT__DURATION_IN_MINUTES=<access token lifetime, default 15>
+REFRESH_TOKEN__DURATION_IN_DAY=<refresh token lifetime in days, default 7>
+REFRESH_TOKEN__OLD_TOKEN_GRACE_IN_SECONDS=<old RT grace period, default 15>
+USER_CACHE__TTL_IN_HOURS=<user sub hash TTL, default 24>
 MAX_DEVICE=<max concurrent devices per user, default 5>
 ```
 
@@ -155,3 +171,23 @@ MAX_DEVICE=<max concurrent devices per user, default 5>
 - `.github/workflows/` exists but has no CI/CD pipelines yet
 - Controllers use `context.Items["userId"]` for auth (not `[Authorize]` attribute)
 - Token-related business logic lives in `UserService`, JWT cryptography in `TokenService`
+
+## Filters (Global)
+
+Registered in `Program.cs` via `AddControllers(options => options.Filters.Add<T>())`:
+
+| Filter | Type | Purpose |
+|--------|------|---------|
+| `LogActionFilter` | IActionFilter | Logs controller/action name and arguments |
+| `GlobalExceptionFilter` | IExceptionFilter | Catches unhandled exceptions, returns `ResponseWrap<object>.Error()` with 500 |
+| `ResultWrapFilter` | IResultFilter | Wraps all responses in `ResponseWrap<T>` (skips if already wrapped) |
+
+### ResponseWrap\<T\>
+
+Unified response envelope (`Bill_App_API.Dtos.ResponseWrap<T>`):
+
+```csharp
+{ Data: T?, Code: int, Message: string, Time: DateTime }
+// Code 0 = success, Code 1 = error
+// Static factories: ResponseWrap<T>.Success(data), ResponseWrap<T>.Error(message)
+```

@@ -10,8 +10,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 namespace Bill_App_API.Services;
 
-public class UserService(BillDbContext dbContext, IRedisService redisService, ITokenService tokenService, IOptions<MaxDeviceOptions> maxDeviceOptions) : IUserService
+public class UserService(BillDbContext dbContext, IRedisService redisService, ITokenService tokenService, IOptions<MaxDeviceOptions> maxDeviceOptions, IOptions<RefreshTokenOptions> refreshTokenOptions, IOptions<UserCacheOptions> userCacheOptions) : IUserService
 {
+    private readonly RefreshTokenOptions _refreshTokenOptions = refreshTokenOptions.Value;
+    private readonly UserCacheOptions _userCacheOptions = userCacheOptions.Value;
     public async Task<bool> Signup(UserSignupRequest req)
     {
         var user = await dbContext.Users.FirstOrDefaultAsync(item => item.Email == req.Email);
@@ -62,15 +64,15 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
                     Name: user.Name
                 );
                 
-                // ¥Í¦¨redisªºuser sub hash¸ê°T & zset ¡A¹L´Á®É¶¡¬°7¤Ñ
-                var expireAt = DateTime.UtcNow.AddDays(7);
-                // ¥Í¦¨access token
+                // ï¿½Í¦ï¿½redisï¿½ï¿½user sub hashï¿½ï¿½T & zset ï¿½Aï¿½Lï¿½ï¿½ï¿½É¶ï¿½ï¿½ï¿½7ï¿½ï¿½
+                var expireAt = DateTime.UtcNow.AddDays(_refreshTokenOptions.DurationInDay);
+                // ï¿½Í¦ï¿½access token
                 var accessToken = tokenService.GenerateAccessToken(user.Name, user.Email, user.Sub);
-                // «Ø¥ßredisªºuser sub hash¸ê°T
-                await redisService.SetUserSubAsync(user.Sub, userSub);
-                // ½üÂà/²£¥Í Refresh Token¡A¨Ã¨ú±o·sªºRefresh Token
+                // ï¿½Ø¥ï¿½redisï¿½ï¿½user sub hashï¿½ï¿½T
+                await redisService.SetUserSubAsync(user.Sub, userSub, TimeSpan.FromHours(_userCacheOptions.TtlInHours));
+                // ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½ Refresh Tokenï¿½Aï¿½Ã¨ï¿½ï¿½oï¿½sï¿½ï¿½Refresh Token
                 var refreshToken = await RotateRefreshToken(user.Id, expireAt);
-                // «Ø¥ßredisªºuser hash¸ê°T
+                // ï¿½Ø¥ï¿½redisï¿½ï¿½user hashï¿½ï¿½T
                 await redisService.SetRefreshToken(refreshToken, new RefreshTokenHash(
                     UserId: user.Id,
                     Email: user.Email,
@@ -89,15 +91,15 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
     }
     public async Task<Guid> RotateRefreshToken(Guid userId, DateTime expireAt)
     {
-        // ¥Í¦¨refresh token
+        // ï¿½Í¦ï¿½refresh token
         var refreshToken = tokenService.GenerateRefreshToken();
-        // «Ø¥ßredisªºrefresh token zset
+        // ï¿½Ø¥ï¿½redisï¿½ï¿½refresh token zset
         var maxDevice = maxDeviceOptions.Value.MaxDevice;
-        // §R°£¦s¦bZset¤w¹L´ÁªºRefresh Token
+        // ï¿½Rï¿½ï¿½ï¿½sï¿½bZsetï¿½wï¿½Lï¿½ï¿½ï¿½ï¿½Refresh Token
         await redisService.DeleteExpiredUserRefreshTokens(userId);
-        // ¬d¸ßZset¥Ø«eªºµ§¼Æ
+        // ï¿½dï¿½ï¿½Zsetï¿½Ø«eï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         var count = await redisService.GetUserRefreshTokenCount(userId);
-        // ¦pªGZsetªº¼Æ¶q¤j©óµ¥©ó³Ì¤j¸Ë¸m¼Æ¶q´N§R±¼³ÌÂÂªº¤@­ÓRefresh Token Hashªº³¡¤À¤]­n§R±¼
+        // ï¿½pï¿½GZsetï¿½ï¿½ï¿½Æ¶qï¿½jï¿½óµ¥©ï¿½Ì¤jï¿½Ë¸mï¿½Æ¶qï¿½Nï¿½Rï¿½ï¿½ï¿½ï¿½ï¿½Âªï¿½ï¿½@ï¿½ï¿½Refresh Token Hashï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½]ï¿½nï¿½Rï¿½ï¿½
         if (count >= maxDevice)
         {
             var oldRefreshToken = await redisService.PopOldestUserRefreshToken(userId);
@@ -107,11 +109,11 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
             }
             else
             {
-                // ¦pªG¨S¦³®³¨ì³ÌÂÂªºRefresh Token¡A¥Nªí¦³²§±`¡A³oÃä¥i¥H¿ï¾Ü¬ö¿ýlog©Î¬O¨ä¥L³B²z¤è¦¡
+                // ï¿½pï¿½Gï¿½Sï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Âªï¿½Refresh Tokenï¿½Aï¿½Nï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½`ï¿½Aï¿½oï¿½ï¿½iï¿½Hï¿½ï¿½Ü¬ï¿½ï¿½ï¿½logï¿½Î¬Oï¿½ï¿½Lï¿½Bï¿½zï¿½è¦¡
 
             }
         }
-        // ³]¸m·sªºRefresh Token Zset
+        // ï¿½]ï¿½mï¿½sï¿½ï¿½Refresh Token Zset
         await redisService.SetUserRefreshToken(userId, refreshToken, expireAt);
         return refreshToken;
     }

@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-
-namespace Bill_App_Cache.Dtos;
+﻿namespace Bill_App_Cache.Dtos;
 public enum IsOldType
 {
     No = 0,
