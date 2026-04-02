@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/Personal/English-learning/frontend/**)",
+      "Read(//d/Personal/English-learning/backend/**)"
+    ]
+  }
+}

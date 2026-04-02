@@ -60,10 +60,24 @@ builder.Services.Configure<AppOptions>(options =>
 {
     options.Domain = Environment.GetEnvironmentVariable("APP_DOMAIN") ?? "";
 });
+// Frontend Options
+builder.Services.Configure<FrontendOptions>(options =>
+{
+    options.Url = Environment.GetEnvironmentVariable("FRONT_END_URL") ?? "";
+});
 // Google Auth Options
 builder.Services.Configure<GoogleAuthOptions>(options =>
 {
     options.ClientId = Environment.GetEnvironmentVariable("GOOGLE_AUTH_CLIENT_ID") ?? "";
+});
+// SMTP
+builder.Services.Configure<SmtpOptions>(options =>
+{
+    options.Host = Environment.GetEnvironmentVariable("SMTP_HOST") ?? "";
+    options.Port = int.Parse(Environment.GetEnvironmentVariable("SMTP_PORT") ?? "587");
+    options.SenderEmail = Environment.GetEnvironmentVariable("SMTP_SENDER_EMAIL") ?? "";
+    options.SenderName = Environment.GetEnvironmentVariable("SMTP_SENDER_NAME") ?? "";
+    options.Password = Environment.GetEnvironmentVariable("SMTP_SENDER_PASSWORD") ?? "";
 });
 // #endregion
 
@@ -83,6 +97,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Redis
 builder.Services.AddSingleton<IConnectionMultiplexer>(

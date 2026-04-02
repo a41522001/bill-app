@@ -8,11 +8,12 @@ namespace Bill_App_API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class UserController(ILogger<UserController> logger, IUserService userService, IOptions<JwtOptions> jwtOptions, IOptions<RefreshTokenOptions> refreshTokenOptions) : ControllerBase
+public class UserController(ILogger<UserController> logger, IUserService userService, IOptions<JwtOptions>
+    jwtOptions, IOptions<RefreshTokenOptions> refreshTokenOptions) : ControllerBase
 {
     private readonly JwtOptions _jwtOptions = jwtOptions.Value;
     private readonly RefreshTokenOptions _refreshTokenOptions = refreshTokenOptions.Value;
-    
+
     /// <summary>
     /// 註冊
     /// </summary>

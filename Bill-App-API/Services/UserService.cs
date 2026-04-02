@@ -14,13 +14,17 @@ using Microsoft.Extensions.Options;
 
 namespace Bill_App_API.Services;
 
-public class UserService(BillDbContext dbContext, IRedisService redisService, ITokenService tokenService, IOptions<MaxDeviceOptions> maxDeviceOptions, IOptions<RefreshTokenOptions> refreshTokenOptions, IOptions<UserCacheOptions> userCacheOptions, IOptions<UserVerifyEmailOptions> userVerifyEmailOptions, IOptions<AppOptions> appOptions, IOptions<GoogleAuthOptions> googleAuthOptions) : IUserService
+public class UserService(BillDbContext dbContext, IRedisService redisService, ITokenService tokenService, IEmailService emailService,
+    IOptions<MaxDeviceOptions> maxDeviceOptions, IOptions<RefreshTokenOptions> refreshTokenOptions, IOptions<UserCacheOptions> userCacheOptions,
+    IOptions<UserVerifyEmailOptions> userVerifyEmailOptions, IOptions<AppOptions> appOptions, IOptions<GoogleAuthOptions> googleAuthOptions,
+    IOptions<FrontendOptions> frontendOptions) : IUserService
 {
     private readonly RefreshTokenOptions _refreshTokenOptions = refreshTokenOptions.Value;
     private readonly UserCacheOptions _userCacheOptions = userCacheOptions.Value;
     private readonly UserVerifyEmailOptions _userVerifyEmailOptions = userVerifyEmailOptions.Value;
     private readonly AppOptions _appOptions = appOptions.Value;
     private readonly GoogleAuthOptions _googleAuthOptions = googleAuthOptions.Value;
+    private readonly FrontendOptions _frontendOptions = frontendOptions.Value;
     /// <summary>
     /// 註冊
     /// </summary>
@@ -45,7 +49,8 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
             Guid token = Guid.NewGuid();
             await redisService.SetEmailVerifyTokenAsync(token, newUser.Id, TimeSpan.FromHours(_userVerifyEmailOptions.TtlInHours));
             // TODO: 發送驗證信，內容包含驗證連結，連結中帶有token參數 (先用Console log 記錄下來 prod環境再發驗證信)
-            var url = $"{_appOptions.Domain}/api/user/verifyEmail/{token}";
+            var url = $"{_frontendOptions.Url}/verifyEmail/{token}";
+            await emailService.SendAsync(req.Email, "Bill App - 驗證你的帳號", $"<h3>歡迎註冊 Bill App</h3><p>請點擊下方連結驗證你的信箱：</p><a href=\"{url}\">點擊驗證</a><p>此連結將在 {_userVerifyEmailOptions.TtlInHours} 小時後失效。</p>");
             Console.WriteLine($"[DEV] 驗證連結: {url}");
             return true;
 
