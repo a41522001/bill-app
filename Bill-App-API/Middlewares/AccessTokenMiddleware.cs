@@ -3,6 +3,7 @@ using Bill_App_API.Interfaces;
 using Bill_App_API.Options;
 using Bill_App_Cache.Dtos;
 using Bill_App_Cache.Interface;
+using Bill_App_API.Extensions;
 using Microsoft.Extensions.Options;
 namespace Bill_App_API.Middlewares;
 
@@ -56,7 +57,7 @@ public class AccessTokenMiddleware(RequestDelegate next, IOptions<UserCacheOptio
                         throw new ApiException("請重新登入", 401);
                     }
                 }
-                context.Items["userId"] = userId;
+                context.SetUserId(userId.Value);
             }
         }
         await next(context);

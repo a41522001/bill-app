@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Bill_App_API.Contexts;
 using Bill_App_API.Dtos;
 using Bill_App_API.Interfaces;
 using Bill_App_API.Extensions;
@@ -7,7 +6,7 @@ namespace Bill_App_API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class CategoryController(ILogger<CategoryController> logger, BillDbContext dbContext, ICategoryService categoryService) : ControllerBase
+public class CategoryController(ICategoryService categoryService) : ControllerBase
 {
     /// <summary>
     /// 新增類別

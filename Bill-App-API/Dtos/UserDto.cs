@@ -17,3 +17,10 @@ public record UserLoginResponse(
 );
 
 public record GoogleLoginRequest(string IdToken);
+
+public record UserProfileResponse(
+    string Name,
+    string Email,
+    int AuthProvider,
+    bool IsEmailVerified
+);

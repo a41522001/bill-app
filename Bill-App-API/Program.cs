@@ -70,7 +70,7 @@ builder.Services.Configure<GoogleAuthOptions>(options =>
 {
     options.ClientId = Environment.GetEnvironmentVariable("GOOGLE_AUTH_CLIENT_ID") ?? "";
 });
-// SMTP
+// SMTP Options
 builder.Services.Configure<SmtpOptions>(options =>
 {
     options.Host = Environment.GetEnvironmentVariable("SMTP_HOST") ?? "";
@@ -78,6 +78,11 @@ builder.Services.Configure<SmtpOptions>(options =>
     options.SenderEmail = Environment.GetEnvironmentVariable("SMTP_SENDER_EMAIL") ?? "";
     options.SenderName = Environment.GetEnvironmentVariable("SMTP_SENDER_NAME") ?? "";
     options.Password = Environment.GetEnvironmentVariable("SMTP_SENDER_PASSWORD") ?? "";
+});
+// Cookie Options
+builder.Services.Configure<AuthCookieOptions>(options =>
+{
+    options.SameSite = builder.Environment.IsProduction() ? SameSiteMode.Strict : SameSiteMode.None;
 });
 // #endregion
 

@@ -52,6 +52,7 @@ Bill-App-API/
 ├── Dtos/           # Request/Response records + ResponseWrap<T>
 ├── Enums/          # TransactionTypeEnum, AuthProviderEnum (Local=0, Google=1)
 ├── Contexts/       # BillDbContext
+├── Extensions/     # HttpContextExtensions (GetUserId)
 ├── Utils/          # PasswordHasher (BCrypt wrapper)
 ├── Migrations/     # EF Core migrations
 └── Program.cs      # DI registration, filters & middleware pipeline
@@ -70,7 +71,8 @@ Bill-App-Cache/  (namespace: Bill_App_Cache)
 - **Namespace root**: `Bill_App_API` (API project), `Bill_App_Cache` (Cache project)
 - **Interface prefix**: `I` (IUserService, ICategoryService, ITokenService)
 - **DTOs**: Use C# `record` types for request objects
-- **Models**: Return domain entities directly (no output DTOs / no AutoMapper)
+- **Models**: Return domain entities directly or use response DTOs (e.g. `UserProfileResponse`), no AutoMapper
+- **HttpContext Extension**: `HttpContext.GetUserId()` 取得已驗證的 userId（C# 14 extension member 語法）
 - **Async pattern**: All I/O operations must be async (`Task<T>`)
 - **EF Core**: Code-first approach with explicit migrations
 - **Nullable reference types**: Enabled project-wide
@@ -207,6 +209,12 @@ Whitelist 使用 `StartsWithSegments` 比對，支援動態路徑（如 `/api/us
 3. Delete RT hash (`DeleteRefreshToken`)
 4. Delete both cookies
 
+### Profile API
+
+- `GET /api/user/profile` (requires auth)
+- 透過 `HttpContext.GetUserId()` 取得 userId → 查 DB → 回傳 `UserProfileResponse`（Name, Email, AuthProvider, IsEmailVerified）
+- 前端登入後呼叫此 API 取得使用者資訊，存入 Pinia auth store
+
 ## Environment Variables
 
 Required in `.env` (loaded via DotNetEnv):
@@ -240,7 +248,7 @@ SMTP_SENDER_PASSWORD=<sender password or app password>
 - **Ignore `bin/` and `obj/` folders** when scanning or searching the codebase
 - `.env` files are gitignored - never commit secrets
 - `.github/workflows/` exists but has no CI/CD pipelines yet
-- Controllers use `context.Items["userId"]` for auth (not `[Authorize]` attribute)
+- Controllers 使用 `HttpContext.GetUserId()` extension 取得已驗證的 userId（不使用 `[Authorize]` attribute）
 - Token-related business logic lives in `UserService`, JWT cryptography in `TokenService`
 
 ## Filters (Global)

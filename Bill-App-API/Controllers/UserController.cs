@@ -1,4 +1,5 @@
 using Bill_App_API.Dtos;
+using Bill_App_API.Extensions;
 using Bill_App_API.Interfaces;
 using Bill_App_API.Options;
 using Microsoft.AspNetCore.Mvc;
@@ -9,10 +10,11 @@ namespace Bill_App_API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 public class UserController(ILogger<UserController> logger, IUserService userService, IOptions<JwtOptions>
-    jwtOptions, IOptions<RefreshTokenOptions> refreshTokenOptions) : ControllerBase
+    jwtOptions, IOptions<RefreshTokenOptions> refreshTokenOptions, IOptions<AuthCookieOptions> authCookieOptions) : ControllerBase
 {
     private readonly JwtOptions _jwtOptions = jwtOptions.Value;
     private readonly RefreshTokenOptions _refreshTokenOptions = refreshTokenOptions.Value;
+    private readonly AuthCookieOptions _authCookieOptions = authCookieOptions.Value;
 
     /// <summary>
     /// 註冊
@@ -38,22 +40,10 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
     public async Task<ActionResult> Login([FromBody] UserLoginRequest req)
     {
         var tokens = await userService.Login(req);
-        // TODO: 之後SameSite要改成SameSiteMode.Strict
-        Response.Cookies.Append("accessToken", tokens.AccessToken, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.None,
-            Expires = DateTimeOffset.UtcNow.AddMinutes(_jwtOptions.DurationInMinutes)
-        });
-        // TODO: 之後SameSite要改成SameSiteMode.Strict
-        Response.Cookies.Append("refreshToken", tokens.RefreshToken.ToString(), new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.None,
-            Expires = DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDay)
-        });
+        Response.Cookies.Append("accessToken", tokens.AccessToken,
+            _authCookieOptions.Create(DateTimeOffset.UtcNow.AddMinutes(_jwtOptions.DurationInMinutes)));
+        Response.Cookies.Append("refreshToken", tokens.RefreshToken.ToString(),
+            _authCookieOptions.Create(DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDay)));
         return Ok("登入成功");
     }
     /// <summary>
@@ -69,36 +59,20 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
         {
             await userService.Logout(refreshToken);
         }
-        // TODO: 之後SameSite要改成SameSiteMode.Strict
-        Response.Cookies.Delete("accessToken", new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.None,
-        });
-        // TODO: 之後SameSite要改成SameSiteMode.Strict
-        Response.Cookies.Delete("refreshToken", new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.None,
-        });
+        Response.Cookies.Delete("accessToken", _authCookieOptions.Create());
+        Response.Cookies.Delete("refreshToken", _authCookieOptions.Create());
         return Ok("登出成功");
     }
     /// <summary>
-    /// 取得Userinfo(測試)
+    /// 取得使用者資訊
     /// </summary>
     /// <returns></returns>
     [HttpGet("profile")]
     public async Task<ActionResult> Profile()
     {
-        //var userId = await userService.GetUserId(sub);
-        //if (userId is null)
-        //{
-        //    return BadRequest("查詢失敗");
-        //}
-        //return Ok(userId);
-        return Ok();
+        var userId = HttpContext.GetUserId();
+        var profile = await userService.GetProfile(userId);
+        return Ok(profile);
     }
     /// <summary>
     /// Google 登入
@@ -107,22 +81,10 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
     public async Task<ActionResult> GoogleLogin([FromBody] GoogleLoginRequest req)
     {
         var tokens = await userService.GoogleLogin(req.IdToken);
-        // TODO: 之後SameSite要改成SameSiteMode.Strict
-        Response.Cookies.Append("accessToken", tokens.AccessToken, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.None,
-            Expires = DateTimeOffset.UtcNow.AddMinutes(_jwtOptions.DurationInMinutes)
-        });
-        // TODO: 之後SameSite要改成SameSiteMode.Strict
-        Response.Cookies.Append("refreshToken", tokens.RefreshToken.ToString(), new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.None,
-            Expires = DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDay)
-        });
+        Response.Cookies.Append("accessToken", tokens.AccessToken,
+            _authCookieOptions.Create(DateTimeOffset.UtcNow.AddMinutes(_jwtOptions.DurationInMinutes)));
+        Response.Cookies.Append("refreshToken", tokens.RefreshToken.ToString(),
+            _authCookieOptions.Create(DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDay)));
         return Ok("Google 登入成功");
     }
     /// <summary>

@@ -1,10 +1,13 @@
 using Bill_App_API.Dtos;
 using Bill_App_API.Exceptions;
+using Bill_App_API.Options;
+using Microsoft.Extensions.Options;
 
 namespace Bill_App_API.Middlewares;
 
-public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger)
+public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger, IOptions<AuthCookieOptions> authCookieOptions)
 {
+    private readonly AuthCookieOptions _authCookieOptions = authCookieOptions.Value;
     public async Task InvokeAsync(HttpContext context)
     {
         try
@@ -15,12 +18,7 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
         {
             if (ex.StatusCode == 401)
             {
-                var cookieOptions = new CookieOptions
-                {
-                    HttpOnly = true,
-                    Secure = true,
-                    SameSite = SameSiteMode.None
-                };
+                var cookieOptions = _authCookieOptions.Create();
                 context.Response.Cookies.Delete("accessToken", cookieOptions);
                 context.Response.Cookies.Delete("refreshToken", cookieOptions);
             }

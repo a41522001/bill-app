@@ -265,5 +265,22 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
 
         return new UserLoginResponse(AccessToken: accessToken, RefreshToken: refreshToken);
     }
+    /// <summary>
+    /// 取得使用者資訊
+    /// </summary>
+    public async Task<UserProfileResponse> GetProfile(Guid userId)
+    {
+        var user = await dbContext.Users.FirstOrDefaultAsync(item => item.Id == userId);
+        if (user is null)
+        {
+            throw new ApiException("使用者不存在");
+        }
+        return new UserProfileResponse(
+            Name: user.Name,
+            Email: user.Email,
+            AuthProvider: (int)user.AuthProvider,
+            IsEmailVerified: user.IsEmailVerified
+        );
+    }
 }
 

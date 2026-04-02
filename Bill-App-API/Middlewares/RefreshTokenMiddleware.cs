@@ -1,17 +1,19 @@
 using Bill_App_API.Exceptions;
 using Bill_App_API.Interfaces;
 using Bill_App_API.Options;
+using Bill_App_API.Extensions;
 using Bill_App_Cache.Dtos;
 using Bill_App_Cache.Interface;
 using Microsoft.Extensions.Options;
 
 namespace Bill_App_API.Middlewares;
 
-public class RefreshTokenMiddleware(RequestDelegate next, IOptions<JwtOptions> jwtOptions, IOptions<RefreshTokenOptions> refreshTokenOptions, IOptions<UserCacheOptions> userCacheOptions)
+public class RefreshTokenMiddleware(RequestDelegate next, IOptions<JwtOptions> jwtOptions, IOptions<RefreshTokenOptions> refreshTokenOptions, IOptions<UserCacheOptions> userCacheOptions, IOptions<AuthCookieOptions> authCookieOptions)
 {
     private readonly JwtOptions _jwtOptions = jwtOptions.Value;
     private readonly RefreshTokenOptions _refreshTokenOptions = refreshTokenOptions.Value;
     private readonly UserCacheOptions _userCacheOptions = userCacheOptions.Value;
+    private readonly AuthCookieOptions _authCookieOptions = authCookieOptions.Value;
     public async Task InvokeAsync(HttpContext context, ITokenService tokenService, IRedisService redisService, IUserService userService)
     {
         // 不處理Middleware的白名單 直接放行
@@ -25,8 +27,7 @@ public class RefreshTokenMiddleware(RequestDelegate next, IOptions<JwtOptions> j
                 return;
             }
         }
-        var userId = context.Items["userId"];
-        if (userId is not null)
+        if (context.HasUserId())
         {
             await next(context);
             return;
@@ -50,7 +51,7 @@ public class RefreshTokenMiddleware(RequestDelegate next, IOptions<JwtOptions> j
             // Redis內沒有儲存的Refresh Token
             throw new ApiException("請重新登入", 401);
         }
-        context.Items["userId"] = userinfo.UserId;
+        context.SetUserId(userinfo.UserId);
         // 檢查是否需要輪轉Refresh Token 舊Refresh Token直接放行(代表前端是使用Promise.all) 但如果是上傳檔案需要前端設置Timeout
         if (userinfo.IsOld == IsOldType.Yes)
         {
@@ -86,23 +87,11 @@ public class RefreshTokenMiddleware(RequestDelegate next, IOptions<JwtOptions> j
         await redisService.UpdateRefreshToken(refreshToken, "IsOld", IsOldType.Yes.ToString());
         // 改變舊Refresh Token的過期時間 設成15秒 (縮短過期時間)
         await redisService.UpdateRefreshTokenExpire(refreshToken, TimeSpan.FromSeconds(_refreshTokenOptions.OldTokenGraceInSeconds));
-        // 在cookie設置新的Access Token和Refresh Token
-        // TODO: 之後SameSite要改成SameSiteMode.Strict
-        context.Response.Cookies.Append("accessToken", newAccessToken, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.None,
-            Expires = DateTimeOffset.UtcNow.AddMinutes(_jwtOptions.DurationInMinutes)
-        });
-        // TODO: 之後SameSite要改成SameSiteMode.Strict
-        context.Response.Cookies.Append("refreshToken", newRefreshToken.ToString(), new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.None,
-            Expires = DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDay)
-        });
+        // 在Cookie設置新的Access Token和Refresh Token
+        context.Response.Cookies.Append("accessToken", newAccessToken,
+            _authCookieOptions.Create(DateTimeOffset.UtcNow.AddMinutes(_jwtOptions.DurationInMinutes)));
+        context.Response.Cookies.Append("refreshToken", newRefreshToken.ToString(),
+            _authCookieOptions.Create(DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDay)));
         await next(context);
     }
 }
