@@ -8,17 +8,19 @@ using Bill_App_API.Enums;
 using Bill_App_API.Exceptions;
 using Bill_App_Cache.Dtos;
 using Bill_App_Cache.Interface;
+using Google.Apis.Auth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace Bill_App_API.Services;
 
-public class UserService(BillDbContext dbContext, IRedisService redisService, ITokenService tokenService, IOptions<MaxDeviceOptions> maxDeviceOptions, IOptions<RefreshTokenOptions> refreshTokenOptions, IOptions<UserCacheOptions> userCacheOptions, IOptions<UserVerifyEmailOptions> userVerifyEmailOptions, IOptions<AppOptions> appOptions) : IUserService
+public class UserService(BillDbContext dbContext, IRedisService redisService, ITokenService tokenService, IOptions<MaxDeviceOptions> maxDeviceOptions, IOptions<RefreshTokenOptions> refreshTokenOptions, IOptions<UserCacheOptions> userCacheOptions, IOptions<UserVerifyEmailOptions> userVerifyEmailOptions, IOptions<AppOptions> appOptions, IOptions<GoogleAuthOptions> googleAuthOptions) : IUserService
 {
     private readonly RefreshTokenOptions _refreshTokenOptions = refreshTokenOptions.Value;
     private readonly UserCacheOptions _userCacheOptions = userCacheOptions.Value;
     private readonly UserVerifyEmailOptions _userVerifyEmailOptions = userVerifyEmailOptions.Value;
     private readonly AppOptions _appOptions = appOptions.Value;
+    private readonly GoogleAuthOptions _googleAuthOptions = googleAuthOptions.Value;
     /// <summary>
     /// 註冊
     /// </summary>
@@ -83,6 +85,10 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
         if (user is null)
         {
             throw new ApiException("帳號或密碼錯誤");
+        }
+        if (user.AuthProvider == AuthProviderEnum.Google)
+        {
+            throw new ApiException("該帳號已綁定 Google，請用 Google 登入");
         }
         bool isVerify = PasswordHasher.VerifyPassword(req.Password, user.Password);
         if (!isVerify)
@@ -194,6 +200,65 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
             }
         }
         return false;
+    }
+    /// <summary>
+    /// Google登入
+    /// </summary>
+    /// <param name="idToken"></param>
+    /// <returns></returns>
+    /// <exception cref="ApiException"></exception>
+    public async Task<UserLoginResponse> GoogleLogin(string idToken)
+    {
+        // 驗證 Google ID Token
+        var payload = await GoogleJsonWebSignature.ValidateAsync(idToken,
+            new GoogleJsonWebSignature.ValidationSettings
+            {
+                Audience = [_googleAuthOptions.ClientId]
+            });
+
+        var email = payload.Email;
+        var name = payload.Name;
+
+        // 查詢 DB 該 Email 是否已存在
+        var user = await dbContext.Users.FirstOrDefaultAsync(u => u.Email == email);
+
+        // 已存在 + Local 帳號 → 拒絕登入
+        if (user is not null && user.AuthProvider == AuthProviderEnum.Local)
+        {
+            throw new ApiException("該 Email 已使用密碼註冊，請用密碼登入");
+        }
+
+        // 不存在 → 自動建立 Google 帳號
+        if (user is null)
+        {
+            user = new User
+            {
+                Name = name,
+                Email = email,
+                Password = null,
+                AuthProvider = AuthProviderEnum.Google,
+                IsEmailVerified = true
+            };
+            await dbContext.Users.AddAsync(user);
+            await dbContext.SaveChangesAsync();
+        }
+
+        // 產生 Token（與 Login 相同邏輯）
+        var userSub = new UserSubHash(UserId: user.Id, Email: user.Email, Name: user.Name);
+        var expireAt = DateTime.UtcNow.AddDays(_refreshTokenOptions.DurationInDay);
+        var accessToken = tokenService.GenerateAccessToken(user.Name, user.Email, user.Sub);
+        await redisService.SetUserSubAsync(user.Sub, userSub, TimeSpan.FromHours(_userCacheOptions.TtlInHours));
+        var refreshToken = await RotateRefreshToken(user.Id, expireAt);
+        await redisService.SetRefreshToken(refreshToken, new RefreshTokenHash(
+            UserId: user.Id,
+            Email: user.Email,
+            Expire: expireAt.ToString("o"),
+            Sub: user.Sub,
+            Name: user.Name,
+            IsOld: IsOldType.No
+        ), expireAt);
+
+        return new UserLoginResponse(AccessToken: accessToken, RefreshToken: refreshToken);
     }
 }
 

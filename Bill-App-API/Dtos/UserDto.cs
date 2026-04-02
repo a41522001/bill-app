@@ -15,3 +15,5 @@ public record UserLoginResponse(
    string AccessToken,
    Guid RefreshToken
 );
+
+public record GoogleLoginRequest(string IdToken);

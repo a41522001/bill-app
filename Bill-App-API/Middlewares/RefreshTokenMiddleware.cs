@@ -1,3 +1,4 @@
+using Bill_App_API.Exceptions;
 using Bill_App_API.Interfaces;
 using Bill_App_API.Options;
 using Bill_App_Cache.Dtos;
@@ -14,7 +15,7 @@ public class RefreshTokenMiddleware(RequestDelegate next, IOptions<JwtOptions> j
     public async Task InvokeAsync(HttpContext context, ITokenService tokenService, IRedisService redisService, IUserService userService)
     {
         // 不處理Middleware的白名單 直接放行
-        string[] whiteList = { "/api/user/login", "/api/user/signup", "/api/user/logout", "/api/user/verifyEmail" };
+        string[] whiteList = { "/api/user/login", "/api/user/signup", "/api/user/logout", "/api/user/verifyEmail", "/api/user/googleLogin" };
         var path = context.Request.Path;
         foreach (var item in whiteList)
         {
@@ -34,22 +35,20 @@ public class RefreshTokenMiddleware(RequestDelegate next, IOptions<JwtOptions> j
         if (refreshTokenString is null)
         {
             // Cookie內沒有Refresh Token
-            // TODO: 暫時先這樣，之後可以改成回傳401
-            throw new Exception("無法取得Refresh Token 重新登入");
+            throw new ApiException("請重新登入", 401);
         }
         Guid refreshToken;
         bool isTransformCorrect = Guid.TryParse(refreshTokenString, out refreshToken);
         if(!isTransformCorrect)
         {
-            // TODO: 暫時先這樣，之後可以改成回傳401
-            throw new Exception("無法取得Refresh Token 重新登入");
+            // Refresh Token格式錯誤
+            throw new ApiException("請重新登入", 401);
         }
         var userinfo = await redisService.GetRefreshToken(refreshToken);
         if(userinfo is null)
         {
             // Redis內沒有儲存的Refresh Token
-            // TODO: 暫時先這樣，之後可以改成回傳401
-            throw new Exception("無法取得Refresh Token 重新登入");
+            throw new ApiException("請重新登入", 401);
         }
         context.Items["userId"] = userinfo.UserId;
         // 檢查是否需要輪轉Refresh Token 舊Refresh Token直接放行(代表前端是使用Promise.all) 但如果是上傳檔案需要前端設置Timeout

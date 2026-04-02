@@ -29,7 +29,7 @@ builder.Services.Configure<JwtOptions>(options =>
   options.DurationInMinutes = int.Parse(
       Environment.GetEnvironmentVariable("JWT__DURATION_IN_MINUTES") ?? "15");
 });
-// 裝置 Options
+// Device Options
 builder.Services.Configure<MaxDeviceOptions>(options =>
 {
   options.MaxDevice = int.Parse(
@@ -60,10 +60,24 @@ builder.Services.Configure<AppOptions>(options =>
 {
     options.Domain = Environment.GetEnvironmentVariable("APP_DOMAIN") ?? "";
 });
-
+// Google Auth Options
+builder.Services.Configure<GoogleAuthOptions>(options =>
+{
+    options.ClientId = Environment.GetEnvironmentVariable("GOOGLE_AUTH_CLIENT_ID") ?? "";
+});
 // #endregion
 
 // CORS
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins(Environment.GetEnvironmentVariable("FRONT_END_URL"))
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
 
 // Dependence Injection
 builder.Services.AddScoped<IUserService, UserService>();
@@ -79,7 +93,6 @@ builder.Services.AddScoped<IRedisService, RedisService>();
 builder.Services.AddControllers(options =>
 {
   options.Filters.Add<Bill_App_API.Filters.LogActionFilter>();
-  options.Filters.Add<Bill_App_API.Filters.GlobalExceptionFilter>();
   options.Filters.Add<Bill_App_API.Filters.ResultWrapFilter>();
 });
 var app = builder.Build();
@@ -92,10 +105,10 @@ if (app.Environment.IsDevelopment())
   app.UseSwaggerUI();
 }
 
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseHttpsRedirection();
+app.UseCors();
 app.UseMiddleware<AccessTokenMiddleware>();
 app.UseMiddleware<RefreshTokenMiddleware>();
-//app.UseAuthentication();
-//app.UseAuthorization();
 app.MapControllers();
 app.Run();

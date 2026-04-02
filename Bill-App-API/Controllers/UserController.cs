@@ -73,7 +73,6 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
             HttpOnly = true,
             Secure = true,
             SameSite = SameSiteMode.None,
-            Expires = DateTimeOffset.UtcNow.AddMinutes(_jwtOptions.DurationInMinutes)
         });
         // TODO: 之後SameSite要改成SameSiteMode.Strict
         Response.Cookies.Delete("refreshToken", new CookieOptions
@@ -81,7 +80,6 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
             HttpOnly = true,
             Secure = true,
             SameSite = SameSiteMode.None,
-            Expires = DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDay)
         });
         return Ok("登出成功");
     }
@@ -99,6 +97,31 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
         //}
         //return Ok(userId);
         return Ok();
+    }
+    /// <summary>
+    /// Google 登入
+    /// </summary>
+    [HttpPost("googleLogin")]
+    public async Task<ActionResult> GoogleLogin([FromBody] GoogleLoginRequest req)
+    {
+        var tokens = await userService.GoogleLogin(req.IdToken);
+        // TODO: 之後SameSite要改成SameSiteMode.Strict
+        Response.Cookies.Append("accessToken", tokens.AccessToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.None,
+            Expires = DateTimeOffset.UtcNow.AddMinutes(_jwtOptions.DurationInMinutes)
+        });
+        // TODO: 之後SameSite要改成SameSiteMode.Strict
+        Response.Cookies.Append("refreshToken", tokens.RefreshToken.ToString(), new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.None,
+            Expires = DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDay)
+        });
+        return Ok("Google 登入成功");
     }
     /// <summary>
     /// 驗證Email

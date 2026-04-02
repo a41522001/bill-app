@@ -1,3 +1,4 @@
+using Bill_App_API.Exceptions;
 using Bill_App_API.Interfaces;
 using Bill_App_API.Options;
 using Bill_App_Cache.Dtos;
@@ -5,15 +6,13 @@ using Bill_App_Cache.Interface;
 using Microsoft.Extensions.Options;
 namespace Bill_App_API.Middlewares;
 
-public class AccessTokenMiddleware(RequestDelegate next, IOptions<JwtOptions> jwtOptions, IOptions<RefreshTokenOptions> refreshTokenOptions, IOptions<UserCacheOptions> userCacheOptions)
+public class AccessTokenMiddleware(RequestDelegate next, IOptions<UserCacheOptions> userCacheOptions)
 {
-    private readonly JwtOptions _jwtOptions = jwtOptions.Value;
-    private readonly RefreshTokenOptions _refreshTokenOptions = refreshTokenOptions.Value;
     private readonly UserCacheOptions _userCacheOptions = userCacheOptions.Value;
     public async Task InvokeAsync(HttpContext context, ITokenService tokenService, IRedisService redisService, IUserService userService)
     {
         // 不處理Middleware的白名單 直接放行
-        string[] whiteList = { "/api/user/login", "/api/user/signup", "/api/user/logout", "/api/user/verifyEmail" };
+        string[] whiteList = { "/api/user/login", "/api/user/signup", "/api/user/logout", "/api/user/verifyEmail", "/api/user/googleLogin" };
         var path = context.Request.Path;
         foreach (var item in whiteList)
         {
@@ -34,24 +33,8 @@ public class AccessTokenMiddleware(RequestDelegate next, IOptions<JwtOptions> jw
                 var name = accessTokenValidatedResult.FindFirst("name")?.Value;
                 if(subString is null || email is null || name is null)
                 {
-                    // TODO: 之後SameSite要改成SameSiteMode.Strict
-                    context.Response.Cookies.Delete("accessToken", new CookieOptions
-                    {
-                        HttpOnly = true,
-                        Secure = true,
-                        SameSite = SameSiteMode.None,
-                        Expires = DateTimeOffset.UtcNow.AddMinutes(_jwtOptions.DurationInMinutes)
-                    });
-                    // TODO: 之後SameSite要改成SameSiteMode.Strict
-                    context.Response.Cookies.Delete("refreshToken", new CookieOptions
-                    {
-                        HttpOnly = true,
-                        Secure = true,
-                        SameSite = SameSiteMode.None,
-                        Expires = DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDay)
-                    });
-                    // TODO: 暫時先這樣，之後可以改成回傳401
-                    throw new Exception("Invalid token");
+                    // 解JWT失敗 可能是被竄改
+                    throw new ApiException("請重新登入", 401);
                 }
                 var subGuid = Guid.Parse(subString!);
                 var userinfo = await redisService.GetUserSubAsync(subGuid);
@@ -69,24 +52,8 @@ public class AccessTokenMiddleware(RequestDelegate next, IOptions<JwtOptions> jw
                     }
                     else
                     {
-                        // TODO: 之後SameSite要改成SameSiteMode.Strict
-                        context.Response.Cookies.Delete("accessToken", new CookieOptions
-                        {
-                            HttpOnly = true,
-                            Secure = true,
-                            SameSite = SameSiteMode.None,
-                            Expires = DateTimeOffset.UtcNow.AddMinutes(_jwtOptions.DurationInMinutes)
-                        });
-                        // TODO: 之後SameSite要改成SameSiteMode.Strict
-                        context.Response.Cookies.Delete("refreshToken", new CookieOptions
-                        {
-                            HttpOnly = true,
-                            Secure = true,
-                            SameSite = SameSiteMode.None,
-                            Expires = DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDay)
-                        });
-                        // TODO: 暫時先這樣，之後可以改成回傳401
-                        throw new Exception("Can't fetch userId");
+                        // userId為null 代表sub在資料庫中找不到對應的使用者 可能是JWT被竄改
+                        throw new ApiException("請重新登入", 401);
                     }
                 }
                 context.Items["userId"] = userId;

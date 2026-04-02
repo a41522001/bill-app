@@ -10,7 +10,8 @@ Monorepo solution with two projects: `Bill-App-API` (Web API) and `Bill-App-Cach
 - **Runtime**: .NET 10, C# 14
 - **Database**: PostgreSQL 18.1 (via EF Core 10 + Npgsql)
 - **Cache**: Redis 7.4 (via StackExchange.Redis)
-- **Auth**: JWT (access token) + GUID (refresh token) + BCrypt password hashing + Email verification
+- **Auth**: JWT (access token) + GUID (refresh token) + BCrypt password hashing + Email verification + Google OAuth (ID Token)
+- **Google Auth**: Google.Apis.Auth (ID Token verification)
 - **Infra**: Docker Compose (postgres + redis)
 
 ## Build & Run
@@ -42,10 +43,10 @@ Bill-App-API/
 ├── Controllers/    # HTTP endpoints (UserController, CategoryController)
 ├── Services/       # Business logic (UserService, TokenService, CategoryService)
 │   └── Interfaces/ # Service contracts (IUserService, ITokenService, ICategoryService)
-├── Middlewares/     # AccessTokenMiddleware, RefreshTokenMiddleware
-├── Filters/        # LogActionFilter, GlobalExceptionFilter, ResultWrapFilter
+├── Middlewares/     # ExceptionHandlingMiddleware, AccessTokenMiddleware, RefreshTokenMiddleware
+├── Filters/        # LogActionFilter, ResultWrapFilter (GlobalExceptionFilter 已移至 ExceptionHandlingMiddleware)
 ├── Exceptions/     # ApiException (custom exception with StatusCode)
-├── Options/        # JwtOptions, MaxDeviceOptions, RefreshTokenOptions, UserCacheOptions, UserVerifyEmailOptions, AppOptions
+├── Options/        # JwtOptions, MaxDeviceOptions, RefreshTokenOptions, UserCacheOptions, UserVerifyEmailOptions, AppOptions, GoogleAuthOptions
 ├── Models/         # EF Core entities (User with AuthProvider, IsEmailVerified)
 ├── Dtos/           # Request/Response records + ResponseWrap<T>
 ├── Enums/          # TransactionTypeEnum, AuthProviderEnum (Local=0, Google=1)
@@ -72,8 +73,9 @@ Bill-App-Cache/  (namespace: Bill_App_Cache)
 - **Async pattern**: All I/O operations must be async (`Task<T>`)
 - **EF Core**: Code-first approach with explicit migrations
 - **Nullable reference types**: Enabled project-wide
-- **Options pattern**: Strongly-typed config via `IOptions<T>` (JwtOptions, MaxDeviceOptions, RefreshTokenOptions, UserCacheOptions, UserVerifyEmailOptions, AppOptions)
-- **Error handling**: `ApiException` for business errors (custom StatusCode), `GlobalExceptionFilter` distinguishes ApiException (4xx) from unexpected errors (500)
+- **Options pattern**: Strongly-typed config via `IOptions<T>` (JwtOptions, MaxDeviceOptions, RefreshTokenOptions, UserCacheOptions, UserVerifyEmailOptions, AppOptions, GoogleAuthOptions)
+- **Error handling**: `ApiException` for business errors (custom StatusCode), `ExceptionHandlingMiddleware` 統一處理所有例外（Middleware + Controller），401 時自動清除 cookies
+- **CORS**: 允許前端 origin（`FRONT_END_URL` 環境變數），`AllowCredentials` 支援 cookie 跨域
 
 ## Authentication Flow
 
@@ -95,16 +97,24 @@ Bill-App-Cache/  (namespace: Bill_App_Cache)
 | `MaxDeviceOptions` | `MAX_DEVICE` | 5 | 每位用戶最大同時登入裝置數 |
 | `UserVerifyEmailOptions` | `USER_VERIFY_EMAIL__TTL_IN_HOURS` | 1 | Email 驗證 token TTL |
 | `AppOptions` | `APP__DOMAIN` | - | 應用程式 domain（用於產生驗證連結） |
+| `GoogleAuthOptions` | `GOOGLE_AUTH_CLIENT_ID` | - | Google OAuth Client ID（ID Token 驗證用） |
+| `GoogleAuthOptions` | `GOOGLE_AUTH_CLIENT_SECRET` | - | Google OAuth Client Secret（目前未使用） |
 
 **Middleware 注入規則**：`IOptions<T>` 是 Singleton，放 constructor；Scoped 服務（ITokenService、IRedisService、IUserService）放 `InvokeAsync` 參數。
 
 ### Middleware Pipeline
 
 ```
-Request → AccessTokenMiddleware → RefreshTokenMiddleware → Controller
+Request → ExceptionHandlingMiddleware → AccessTokenMiddleware → RefreshTokenMiddleware → Controller
 ```
 
-**Whitelist routes** (skip both middlewares): `/api/user/login`, `/api/user/signup`, `/api/user/logout`, `/api/user/verifyEmail`
+**ExceptionHandlingMiddleware** (最外層):
+- 統一 catch 所有例外（取代原本的 `GlobalExceptionFilter`）
+- `ApiException` → 用其 StatusCode + `ResponseWrap<object>.Error(message)`
+- 其他 `Exception` → 500 + log + `ResponseWrap<object>.Error("伺服器內部錯誤")`
+- 401 時自動清除 `accessToken` 和 `refreshToken` cookies
+
+**Whitelist routes** (skip AccessToken & RefreshToken middlewares): `/api/user/login`, `/api/user/signup`, `/api/user/logout`, `/api/user/verifyEmail`, `/api/user/googleLogin`
 
 Whitelist 使用 `StartsWithSegments` 比對，支援動態路徑（如 `/api/user/verifyEmail/{token}`）。
 
@@ -153,13 +163,34 @@ Whitelist 使用 `StartsWithSegments` 比對，支援動態路徑（如 `/api/us
 3. Update DB `IsEmailVerified = true`
 4. Delete Redis token (prevent reuse)
 
-### Login Flow
+### Login Flow (Local)
 
 1. Verify credentials (email + bcrypt password)
-2. Check `IsEmailVerified` — reject if `false` (throw `ApiException`)
-3. Generate access token (JWT) + refresh token (GUID)
-4. Store in Redis: UserSub hash, RT ZSet entry, RT hash
-5. Set HttpOnly cookies for both tokens
+2. Check `AuthProvider` — reject if `Google` (throw `ApiException`「該帳號已綁定 Google，請用 Google 登入」)
+3. Check `IsEmailVerified` — reject if `false` (throw `ApiException`)
+4. Generate access token (JWT) + refresh token (GUID)
+5. Store in Redis: UserSub hash, RT ZSet entry, RT hash
+6. Set HttpOnly cookies for both tokens
+
+### Google Login Flow
+
+1. Frontend sends Google ID Token → `POST /api/user/googleLogin`
+2. Verify ID Token via `GoogleJsonWebSignature.ValidateAsync()` (check signature + audience)
+3. Extract email, name from payload
+4. Query DB by email:
+   - Email exists + `AuthProvider == Local` → reject (throw `ApiException`「該 Email 已使用密碼註冊，請用密碼登入」)
+   - Email exists + `AuthProvider == Google` → proceed as login
+   - Email not found → auto-create User (`AuthProvider = Google`, `IsEmailVerified = true`, `Password = null`)
+5. Generate access token (JWT) + refresh token (GUID) — same as local login
+6. Store in Redis + set HttpOnly cookies
+
+### Account Conflict Rules
+
+| Scenario | Result |
+|----------|--------|
+| Local login + AuthProvider is Google | Reject (請用 Google 登入) |
+| Google login + AuthProvider is Local | Reject (請用密碼登入) |
+| Signup + Email already exists (any provider) | Reject (註冊失敗) |
 
 ### Logout Flow
 
@@ -186,6 +217,9 @@ USER_CACHE__TTL_IN_HOURS=<user sub hash TTL, default 24>
 MAX_DEVICE=<max concurrent devices per user, default 5>
 USER_VERIFY_EMAIL__TTL_IN_HOURS=<email verify token TTL, default 1>
 APP__DOMAIN=<application domain, e.g. https://localhost:7188>
+GOOGLE_AUTH_CLIENT_ID=<Google OAuth Client ID>
+GOOGLE_AUTH_CLIENT_SECRET=<Google OAuth Client Secret>
+FRONT_END_URL=<frontend origin, e.g. http://localhost:5173>
 ```
 
 ## Important Notes
@@ -203,8 +237,9 @@ Registered in `Program.cs` via `AddControllers(options => options.Filters.Add<T>
 | Filter | Type | Purpose |
 |--------|------|---------|
 | `LogActionFilter` | IActionFilter | Logs controller/action name and arguments |
-| `GlobalExceptionFilter` | IExceptionFilter | `ApiException` → 用其 StatusCode；其他 Exception → 500 + log |
 | `ResultWrapFilter` | IResultFilter | Wraps all responses in `ResponseWrap<T>` (skips if already wrapped) |
+
+> Note: `GlobalExceptionFilter` 已移至 `ExceptionHandlingMiddleware`，統一處理 Middleware 和 Controller 層的例外。
 
 ### ResponseWrap\<T\>
 
