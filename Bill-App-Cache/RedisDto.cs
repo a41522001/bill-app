@@ -1,4 +1,5 @@
-﻿namespace Bill_App_Cache.Dtos;
+namespace Bill_App_Cache.Dtos;
+
 public enum IsOldType
 {
     No = 0,
@@ -15,5 +16,5 @@ public record RefreshTokenHash(
     string Email,
     Guid Sub,
     string Name,
-    IsOldType IsOld 
+    IsOldType IsOld
 );

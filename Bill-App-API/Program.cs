@@ -23,25 +23,25 @@ builder.Services.AddDbContext<BillDbContext>(options =>
 // JWT Options
 builder.Services.Configure<JwtOptions>(options =>
 {
-  options.Key = Environment.GetEnvironmentVariable("JWT__KEY")!;
-  options.Issuer = Environment.GetEnvironmentVariable("JWT__ISSUER")!;
-  options.Audience = Environment.GetEnvironmentVariable("JWT__AUDIENCE")!;
-  options.DurationInMinutes = int.Parse(
-      Environment.GetEnvironmentVariable("JWT__DURATION_IN_MINUTES") ?? "15");
+    options.Key = Environment.GetEnvironmentVariable("JWT__KEY")!;
+    options.Issuer = Environment.GetEnvironmentVariable("JWT__ISSUER")!;
+    options.Audience = Environment.GetEnvironmentVariable("JWT__AUDIENCE")!;
+    options.DurationInMinutes = int.Parse(
+        Environment.GetEnvironmentVariable("JWT__DURATION_IN_MINUTES") ?? "15");
 });
 // Device Options
 builder.Services.Configure<MaxDeviceOptions>(options =>
 {
-  options.MaxDevice = int.Parse(
-      Environment.GetEnvironmentVariable("MAX_DEVICE") ?? "5");
+    options.MaxDevice = int.Parse(
+        Environment.GetEnvironmentVariable("MAX_DEVICE") ?? "5");
 });
 // Refresh Token Options
 builder.Services.Configure<RefreshTokenOptions>(options =>
 {
-  options.DurationInDay = int.Parse(
-      Environment.GetEnvironmentVariable("REFRESH_TOKEN__DURATION_IN_DAY") ?? "7");
-  options.OldTokenGraceInSeconds = int.Parse(
-      Environment.GetEnvironmentVariable("REFRESH_TOKEN__OLD_TOKEN_GRACE_IN_SECONDS") ?? "15");
+    options.DurationInDay = int.Parse(
+        Environment.GetEnvironmentVariable("REFRESH_TOKEN__DURATION_IN_DAY") ?? "7");
+    options.OldTokenGraceInSeconds = int.Parse(
+        Environment.GetEnvironmentVariable("REFRESH_TOKEN__OLD_TOKEN_GRACE_IN_SECONDS") ?? "15");
 });
 // User Cache Options
 builder.Services.Configure<UserCacheOptions>(options =>
@@ -107,17 +107,17 @@ builder.Services.AddScoped<IRedisService, RedisService>();
 // Filter
 builder.Services.AddControllers(options =>
 {
-  options.Filters.Add<Bill_App_API.Filters.LogActionFilter>();
-  options.Filters.Add<Bill_App_API.Filters.ResultWrapFilter>();
+    options.Filters.Add<Bill_App_API.Filters.LogActionFilter>();
+    options.Filters.Add<Bill_App_API.Filters.ResultWrapFilter>();
 });
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-  app.MapOpenApi();
-  app.UseSwagger();
-  app.UseSwaggerUI();
+    app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();

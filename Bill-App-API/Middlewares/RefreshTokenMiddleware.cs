@@ -26,7 +26,7 @@ public class RefreshTokenMiddleware(RequestDelegate next, IOptions<JwtOptions> j
             }
         }
         var userId = context.Items["userId"];
-        if(userId is not null)
+        if (userId is not null)
         {
             await next(context);
             return;
@@ -39,13 +39,13 @@ public class RefreshTokenMiddleware(RequestDelegate next, IOptions<JwtOptions> j
         }
         Guid refreshToken;
         bool isTransformCorrect = Guid.TryParse(refreshTokenString, out refreshToken);
-        if(!isTransformCorrect)
+        if (!isTransformCorrect)
         {
             // Refresh Token格式錯誤
             throw new ApiException("請重新登入", 401);
         }
         var userinfo = await redisService.GetRefreshToken(refreshToken);
-        if(userinfo is null)
+        if (userinfo is null)
         {
             // Redis內沒有儲存的Refresh Token
             throw new ApiException("請重新登入", 401);

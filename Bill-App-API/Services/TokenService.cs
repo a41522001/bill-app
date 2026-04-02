@@ -48,14 +48,14 @@ public class TokenService(IOptions<JwtOptions> jwtOptions) : ITokenService
                 ValidateIssuer = true,
                 ValidIssuer = _jwtOptions.Issuer,
                 ValidateAudience = true,
-                ValidAudience = _jwtOptions.Audience, 
+                ValidAudience = _jwtOptions.Audience,
                 ClockSkew = TimeSpan.Zero
             }, out _);
             return result;
         }
         catch
         {
-            return null;  // ÅçÃÒ¥¢±Ñ
+            return null;  // é©—è­‰å¤±æ•—
         }
     }
 }

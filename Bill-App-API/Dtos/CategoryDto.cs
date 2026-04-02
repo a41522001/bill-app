@@ -2,6 +2,12 @@ using Bill_App_API.Enums;
 namespace Bill_App_API.Dtos;
 
 public record CategoryAddRequest(
-  string Name,
-  TransactionTypeEnum Type
+    string Name,
+    TransactionTypeEnum Type
+);
+public record CategoryResponse(
+    Guid Id,
+    string Name,
+    string TypeName,
+    TransactionTypeEnum Type
 );

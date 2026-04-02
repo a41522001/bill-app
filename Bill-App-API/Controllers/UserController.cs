@@ -39,7 +39,8 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
     {
         var tokens = await userService.Login(req);
         // TODO: 之後SameSite要改成SameSiteMode.Strict
-        Response.Cookies.Append("accessToken", tokens.AccessToken, new CookieOptions { 
+        Response.Cookies.Append("accessToken", tokens.AccessToken, new CookieOptions
+        {
             HttpOnly = true,
             Secure = true,
             SameSite = SameSiteMode.None,
@@ -64,7 +65,7 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
     public async Task<ActionResult> Logout()
     {
         var refreshToken = Request.Cookies["refreshToken"];
-        if(refreshToken is not null)
+        if (refreshToken is not null)
         {
             await userService.Logout(refreshToken);
         }
@@ -132,7 +133,7 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
     public async Task<ActionResult> VerifyEmail(Guid token)
     {
         var isVerify = await userService.VerifyEmail(token);
-        if(isVerify)
+        if (isVerify)
         {
             return Ok("驗證成功");
         }

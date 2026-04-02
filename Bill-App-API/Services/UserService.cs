@@ -66,12 +66,12 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
     {
         Guid refreshTokenGuid;
         bool isTransformCorrect = Guid.TryParse(refreshToken, out refreshTokenGuid);
-        if(!isTransformCorrect)
+        if (!isTransformCorrect)
         {
             return;
         }
         var uesrHash = await redisService.GetRefreshToken(refreshTokenGuid);
-        if(uesrHash is null)
+        if (uesrHash is null)
         {
             return;
         }
@@ -129,7 +129,7 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
         return new UserLoginResponse(
             AccessToken: accessToken,
             RefreshToken: refreshToken
-        ); 
+        );
     }
     /// <summary>
     /// 輪轉Refresh Token

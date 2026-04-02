@@ -23,15 +23,15 @@ public class AccessTokenMiddleware(RequestDelegate next, IOptions<UserCacheOptio
             }
         }
         var accessToken = context.Request.Cookies["accessToken"];
-        if(accessToken is not null)
+        if (accessToken is not null)
         {
             var accessTokenValidatedResult = tokenService.ValidateAccessToken(accessToken);
-            if(accessTokenValidatedResult is not null)
+            if (accessTokenValidatedResult is not null)
             {
                 var subString = accessTokenValidatedResult.FindFirst("sub")?.Value;
                 var email = accessTokenValidatedResult.FindFirst("email")?.Value;
                 var name = accessTokenValidatedResult.FindFirst("name")?.Value;
-                if(subString is null || email is null || name is null)
+                if (subString is null || email is null || name is null)
                 {
                     // 解JWT失敗 可能是被竄改
                     throw new ApiException("請重新登入", 401);

@@ -3,6 +3,7 @@ using Bill_App_Cache.Interface;
 using Bill_App_Cache.Keys;
 using StackExchange.Redis;
 namespace Bill_App_Cache.Services;
+
 public class RedisService(IConnectionMultiplexer redis) : IRedisService
 {
     private readonly IDatabase _db = redis.GetDatabase();
@@ -120,9 +121,9 @@ public class RedisService(IConnectionMultiplexer redis) : IRedisService
     {
         var key = RedisKeys.UserSub(sub);
         var entries = await _db.HashGetAllAsync(key);
-        if (entries.Length == 0) 
+        if (entries.Length == 0)
         {
-            return null; 
+            return null;
         }
 
         var dict = entries.ToDictionary(
@@ -151,7 +152,7 @@ public class RedisService(IConnectionMultiplexer redis) : IRedisService
         {
             return null;
         }
-        return Guid.Parse(result.ToString()); 
+        return Guid.Parse(result.ToString());
     }
     // 刪除Email驗證的UserId(By random token)
     public async Task DeleteEmailVerifyTokenAsync(Guid token)
