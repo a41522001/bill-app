@@ -13,4 +13,6 @@ public interface IUserService
     Task<UserLoginResponse> GoogleLogin(string idToken);
     Task<UserProfileResponse> GetProfile(Guid userId);
     Task ResendVerifyEmail(string email);
+    Task ForgetPassword(string email);
+    Task ResetPassword(UserResetPasswordRequest req);
 }

@@ -111,4 +111,24 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
         }
         return BadRequest("驗證失敗");
     }
+    /// <summary>
+    /// 忘記密碼
+    /// </summary>
+    /// <returns></returns>
+    [HttpPost("forgetPassword")]
+    public async Task<ActionResult> ForgetPassword([FromBody] UserForgetPasswordRequest req)
+    {
+        await userService.ForgetPassword(req.Email);
+        return Ok("若該信箱已註冊，重設密碼信已寄出");
+    }
+    /// <summary>
+    /// 重設密碼
+    /// </summary>
+    /// <returns></returns>
+    [HttpPost("resetPassword")]
+    public async Task<ActionResult> ResetPassword([FromBody] UserResetPasswordRequest req)
+    {
+        await userService.ResetPassword(req);
+        return Ok("重設密碼成功，請用新密碼登入");
+    }
 }

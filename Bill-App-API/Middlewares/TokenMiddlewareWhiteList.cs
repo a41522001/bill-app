@@ -9,7 +9,9 @@ public static class TokenMiddlewareWhiteList
         "/api/user/logout",
         "/api/user/verifyEmail",
         "/api/user/googleLogin",
-        "/api/user/resendVerifyEmail"
+        "/api/user/resendVerifyEmail",
+        "/api/user/forgetPassword",
+        "/api/user/resetPassword",
     ];
 
     public static bool IsWhiteListed(PathString path)

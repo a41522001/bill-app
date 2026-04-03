@@ -57,6 +57,13 @@ Bill-App-API/
 ├── Migrations/     # EF Core migrations
 └── Program.cs      # DI registration, filters & middleware pipeline
 
+docs/                # 專案文件與功能規劃
+├── api-endpoints.md    # API Endpoints 總覽（所有 request/response 格式、ResponseCode、前端串接指南）
+├── response-codes.md   # ResponseCodeEnum 完整定義
+├── GoogleAuth.md       # Google OAuth 整合筆記
+├── GmailSMTP.md        # Gmail SMTP 設定筆記
+└── ResendAuthCode.md   # 重送驗證信功能規劃
+
 Bill-App-Cache/  (namespace: Bill_App_Cache)
 ├── IRedisService.cs    # Redis service interface (Bill_App_Cache.Interface)
 ├── RedisService.cs     # Redis service implementation (Bill_App_Cache.Services)
@@ -124,7 +131,7 @@ Request → ExceptionHandlingMiddleware → AccessTokenMiddleware → RefreshTok
 - 其他 `Exception` → 500 + log + `ResponseWrap<object>.Error("伺服器內部錯誤")`
 - 401 時自動清除 `accessToken` 和 `refreshToken` cookies
 
-**Whitelist routes** (skip AccessToken & RefreshToken middlewares，定義於 `TokenMiddlewareWhiteList`): `/api/user/login`, `/api/user/signup`, `/api/user/logout`, `/api/user/verifyEmail`, `/api/user/googleLogin`, `/api/user/resendVerifyEmail`
+**Whitelist routes** (skip AccessToken & RefreshToken middlewares，定義於 `TokenMiddlewareWhiteList`): `/api/user/login`, `/api/user/signup`, `/api/user/logout`, `/api/user/verifyEmail`, `/api/user/googleLogin`, `/api/user/resendVerifyEmail`, `/api/user/forgetPassword`, `/api/user/resetPassword`
 
 Whitelist 使用 `StartsWithSegments` 比對，支援動態路徑（如 `/api/user/verifyEmail/{token}`）。
 
@@ -153,6 +160,8 @@ Whitelist 使用 `StartsWithSegments` 比對，支援動態路徑（如 `/api/us
 | `user:sub#{sub}` | Hash | Cached user info (UserId, Email, Name) with TTL |
 | `email:verify#{token}` | String | Email verification token → userId (GUID) with TTL |
 | `email:resendCooldown#{userId}` | String | 重送驗證信冷卻（TTL 60s，防止短時間內重複請求） |
+| `passwordReset#{token}` | String | 忘記密碼 token → userId (GUID) with TTL |
+| `email:forgetCooldown#{userId}` | String | 忘記密碼信冷卻（TTL 60s，防止短時間內重複請求） |
 
 ### Multi-Device Support
 
@@ -184,6 +193,27 @@ Whitelist 使用 `StartsWithSegments` 比對，支援動態路徑（如 `/api/us
 5. 設定 `email:resendCooldown#{userId}`（TTL 60s）與產生新 GUID verification token 存入 Redis（`Task.WhenAll` 並行）
 6. 透過 EmailService 寄送驗證信，連結指向前端路由 `{FRONT_END_URL}/verifyEmail/{token}`
 7. Controller 統一回傳 `Ok("若該信箱已註冊，驗證信已寄出")`
+
+### Forget Password Flow
+
+1. `POST /api/user/forgetPassword` (whitelist route, no auth required)
+2. Request body: `UserForgetPasswordRequest { Email }`
+3. 查詢 DB → 若 user 不存在、信箱未驗證、或 AuthProvider 為 Google → 靜默返回（不洩漏帳號資訊）
+4. 檢查 Redis `email:forgetCooldown#{userId}` → 存在則靜默返回（60s 冷卻中）
+5. 設定 `email:forgetCooldown#{userId}`（TTL 60s）與產生新 GUID reset token 存入 Redis `passwordReset#{token}`（`Task.WhenAll` 並行）
+6. 透過 EmailService 寄送重設密碼信，連結指向前端路由 `{FRONT_END_URL}/revisePassword/{token}`
+7. Controller 統一回傳 `Ok("若該信箱已註冊，重設密碼信已寄出")`
+
+### Reset Password Flow
+
+1. `POST /api/user/resetPassword` (whitelist route, no auth required)
+2. Request body: `UserResetPasswordRequest { Token, Password }`
+3. Query Redis `passwordReset#{token}` → get userId，無效則拋 ApiException
+4. 查 DB 取得 user，不存在則拋 ApiException
+5. BCrypt hash 新密碼 → 更新 user.Password
+6. 讀取該用戶所有 refresh token（ZSet）→ 並行刪除所有 RT hash（`Task.WhenAll`）
+7. 並行刪除 reset token + 刪除整個 RT ZSet（`Task.WhenAll`）
+8. 儲存 DB 變更（強制所有裝置重新登入）
 
 ### Login Flow (Local)
 

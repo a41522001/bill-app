@@ -28,3 +28,11 @@ public record UserProfileResponse(
 public record UserResendVerifyEmailRequest(
     string Email
 );
+public record UserForgetPasswordRequest(
+    string Email
+);
+public record UserResetPasswordRequest(
+    string Password,
+    Guid Token
+);
+

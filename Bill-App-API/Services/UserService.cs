@@ -12,6 +12,7 @@ using Bill_App_Cache.Services;
 using Google.Apis.Auth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using StackExchange.Redis;
 
 namespace Bill_App_API.Services;
 
@@ -33,13 +34,13 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
     public async Task ResendVerifyEmail(string email)
     {
         var user = await dbContext.Users.FirstOrDefaultAsync(item => item.Email == email);
-        if(user is null || user.AuthProvider != AuthProviderEnum.Local || user.IsEmailVerified)
+        if (user is null || user.AuthProvider != AuthProviderEnum.Local || user.IsEmailVerified)
         {
             return;
         }
         Guid userId = user.Id;
         var isCooldownExist = await redisService.GetEmailResendCooldown(userId);
-        if(isCooldownExist)
+        if (isCooldownExist)
         {
             return;
         }
@@ -306,6 +307,66 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
             AuthProvider: (int)user.AuthProvider,
             IsEmailVerified: user.IsEmailVerified
         );
+    }
+    /// <summary>
+    /// 忘記密碼
+    /// </summary>
+    /// <param name="email"></param>
+    /// <returns></returns>
+    public async Task ForgetPassword(string email)
+    {
+        var user = await dbContext.Users.FirstOrDefaultAsync(item => item.Email == email);
+        if (user is null)
+        {
+            return;
+        }
+        if (!user.IsEmailVerified || user.AuthProvider == AuthProviderEnum.Google)
+        {
+            return;
+        }
+        Guid userId = user.Id;
+        var isCooldownExist = await redisService.GetForgetPasswordCooldown(userId);
+        if (isCooldownExist)
+        {
+            return;
+        }
+        Guid token = Guid.NewGuid();
+        await Task.WhenAll(
+            redisService.SetForgetPasswordToken(token, userId, TimeSpan.FromHours(_userVerifyEmailOptions.TtlInHours)),
+            redisService.SetForgetPasswordCooldown(userId, TimeSpan.FromSeconds(60))
+        );
+        var url = $"{_frontendOptions.Url}/revisePassword/{token}";
+        await emailService.SendAsync(email, "Bill App - 修改密碼", $"<h3>修改密碼</h3><p>請點擊下方連結修改你的密碼：</p><a href=\"{url}\">點擊修改</a><p>此連結將在 {_userVerifyEmailOptions.TtlInHours} 小時後失效。</p>");
+        Console.WriteLine($"[DEV] 驗證連結: {url}");
+    }
+    /// <summary>
+    /// 修改密碼
+    /// </summary>
+    /// <returns></returns>
+    public async Task ResetPassword(UserResetPasswordRequest req)
+    {
+        var userId = await redisService.GetForgetPasswordUserId(req.Token);
+        if (userId is null)
+        {
+            throw new ApiException("連結已失效，請重新申請", 400);
+        }
+        var user = await dbContext.Users.FirstOrDefaultAsync(item => item.Id == userId);
+        if (user is null)
+        {
+            throw new ApiException("連結已失效，請重新申請", 400);
+        }
+        var hashPassword = PasswordHasher.HashPassword(req.Password);
+        user.Password = hashPassword;
+
+        List<Guid> refreshTokens = await redisService.GetUserAllRefreshToken(userId.Value);
+        var deleteTasks = refreshTokens.Select(refreshToken => redisService.DeleteRefreshToken(refreshToken));
+        await Task.WhenAll(deleteTasks);
+        await Task.WhenAll(
+            redisService.DeleteForgetPasswordToken(req.Token),
+            redisService.DeleteUserRefreshToken(userId.Value)
+         );
+        dbContext.Users.Update(user);
+        await dbContext.SaveChangesAsync();
     }
 }
 

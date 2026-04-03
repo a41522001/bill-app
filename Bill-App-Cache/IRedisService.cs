@@ -15,6 +15,10 @@ public interface IRedisService
     Task<string?> PopOldestUserRefreshToken(Guid userId);
     // 刪除User的Refresh Token ZSet(by member)
     Task DeleteUserRefreshTokenByMember(Guid userId, Guid refreshToken);
+    // 取得User的Refresh Token ZSet
+    Task<List<Guid>> GetUserAllRefreshToken(Guid userId);
+    // 刪除User的Refresh Token ZSet
+    Task DeleteUserRefreshToken(Guid userId);
     // 刪除Refresh Token的Hash
     Task DeleteRefreshToken(Guid refreshToken);
     // 取得Refresh Token的Hash
@@ -39,4 +43,14 @@ public interface IRedisService
     Task SetEmailResendCooldown(Guid userId, TimeSpan expire);
     // 取得Email重發驗證信的冷卻時間(By userId)
     Task<bool> GetEmailResendCooldown(Guid userId);
+    // 設置忘記密碼的token
+    Task SetForgetPasswordToken(Guid token, Guid userId, TimeSpan ttl);
+    // 取得忘記密碼的token對應的UserId
+    Task<Guid?> GetForgetPasswordUserId(Guid token);
+    // 刪除忘記密碼的token
+    Task DeleteForgetPasswordToken(Guid token);
+    // 設置Email重發忘記密碼的冷卻時間(By userId)
+    Task SetForgetPasswordCooldown(Guid userId, TimeSpan expire);
+    // 取得Email重發忘記密碼的冷卻時間(By userId)
+    Task<bool> GetForgetPasswordCooldown(Guid userId);
 }

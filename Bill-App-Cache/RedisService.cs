@@ -47,6 +47,19 @@ public class RedisService(IConnectionMultiplexer redis) : IRedisService
         double score = new DateTimeOffset(expireAt).ToUnixTimeMilliseconds();
         await _db.SortedSetAddAsync(key, refreshToken.ToString(), score);
     }
+    // 取得User的Refresh Token ZSet
+    public async Task<List<Guid>> GetUserAllRefreshToken(Guid userId)
+    {
+        var key = RedisKeys.UserRefreshTokens(userId);
+        var result = await _db.SortedSetRangeByRankAsync(key, 0, -1, Order.Ascending);
+        return result.Select(x => Guid.Parse(x.ToString())).ToList();
+    }
+    // 刪除User的Refresh Token ZSet
+    public async Task DeleteUserRefreshToken(Guid userId)
+    {
+        var key = RedisKeys.UserRefreshTokens(userId);
+        await _db.KeyDeleteAsync(key);
+    }
     // 刪除Refresh Token的Hash
     public async Task DeleteRefreshToken(Guid refreshToken)
     {
@@ -170,6 +183,43 @@ public class RedisService(IConnectionMultiplexer redis) : IRedisService
     public async Task<bool> GetEmailResendCooldown(Guid userId)
     {
         var key = RedisKeys.EmailResendCooldown(userId);
+        var result = await _db.StringGetAsync(key);
+        // 如果result為Null或Empty，表示沒有冷卻時間，返回false；如果有值，表示正在冷卻中，返回true
+        return !result.IsNullOrEmpty;
+    }
+    // 設置忘記密碼的token
+    public async Task SetForgetPasswordToken(Guid token, Guid userId, TimeSpan ttl)
+    {
+        var key = RedisKeys.PasswordResetToken(token);
+        await _db.StringSetAsync(key, userId.ToString(), ttl);
+    }
+    // 取得忘記密碼的token對應的UserId
+    public async Task<Guid?> GetForgetPasswordUserId(Guid token)
+    {
+        var key = RedisKeys.PasswordResetToken(token);
+        var result = await _db.StringGetAsync(key);
+        if (result.IsNull)
+        {
+            return null;
+        }
+        return Guid.Parse(result.ToString());
+    }
+    // 刪除忘記密碼的token
+    public async Task DeleteForgetPasswordToken(Guid token)
+    {
+        var key = RedisKeys.PasswordResetToken(token);
+        await _db.KeyDeleteAsync(key);
+    }
+    // 設置Email重發忘記密碼的冷卻時間(By userId)
+    public async Task SetForgetPasswordCooldown(Guid userId, TimeSpan expire)
+    {
+        var key = RedisKeys.EmailPasswordForgetCooldown(userId);
+        await _db.StringSetAsync(key, "cooldown", expire);
+    }
+    // 取得Email重發忘記密碼的冷卻時間(By userId)
+    public async Task<bool> GetForgetPasswordCooldown(Guid userId)
+    {
+        var key = RedisKeys.EmailPasswordForgetCooldown(userId);
         var result = await _db.StringGetAsync(key);
         // 如果result為Null或Empty，表示沒有冷卻時間，返回false；如果有值，表示正在冷卻中，返回true
         return !result.IsNullOrEmpty;
