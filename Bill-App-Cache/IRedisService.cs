@@ -35,4 +35,8 @@ public interface IRedisService
     Task<Guid?> GetEmailVerifyUserId(Guid token);
     // 刪除Email驗證的UserId(By random token)
     Task DeleteEmailVerifyTokenAsync(Guid token);
+    // 設置Email重發驗證信的冷卻時間(By userId)
+    Task SetEmailResendCooldown(Guid userId, TimeSpan expire);
+    // 取得Email重發驗證信的冷卻時間(By userId)
+    Task<bool> GetEmailResendCooldown(Guid userId);
 }

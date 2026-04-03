@@ -152,6 +152,7 @@ Whitelist 使用 `StartsWithSegments` 比對，支援動態路徑（如 `/api/us
 | `auth:user#{userId}:refreshToken` | ZSet | All RTs for a user, score = expiry timestamp (ms) |
 | `user:sub#{sub}` | Hash | Cached user info (UserId, Email, Name) with TTL |
 | `email:verify#{token}` | String | Email verification token → userId (GUID) with TTL |
+| `email:resendCooldown#{userId}` | String | 重送驗證信冷卻（TTL 60s，防止短時間內重複請求） |
 
 ### Multi-Device Support
 
@@ -179,8 +180,10 @@ Whitelist 使用 `StartsWithSegments` 比對，支援動態路徑（如 `/api/us
 1. `POST /api/user/resendVerifyEmail` (whitelist route, no auth required)
 2. Request body: `UserResendVerifyEmailRequest { Email }`
 3. 查詢 DB → 若 user 不存在、AuthProvider 非 Local、或已驗證 → 靜默返回（不洩漏帳號資訊）
-4. 產生新的 GUID verification token → 存入 Redis → 寄送驗證信
-5. Controller 統一回傳 `Ok("若該信箱已註冊，驗證信已寄出")`
+4. 檢查 Redis `email:resendCooldown#{userId}` → 存在則靜默返回（60s 冷卻中，同樣不洩漏資訊）
+5. 設定 `email:resendCooldown#{userId}`（TTL 60s）與產生新 GUID verification token 存入 Redis（`Task.WhenAll` 並行）
+6. 透過 EmailService 寄送驗證信，連結指向前端路由 `{FRONT_END_URL}/verifyEmail/{token}`
+7. Controller 統一回傳 `Ok("若該信箱已註冊，驗證信已寄出")`
 
 ### Login Flow (Local)
 

@@ -160,4 +160,18 @@ public class RedisService(IConnectionMultiplexer redis) : IRedisService
         var key = RedisKeys.EmailVerify(token);
         await _db.KeyDeleteAsync(key);
     }
+    // 設置Email重發驗證信的冷卻時間(By userId)
+    public async Task SetEmailResendCooldown(Guid userId, TimeSpan expire)
+    {
+        var key = RedisKeys.EmailResendCooldown(userId);
+        await _db.StringSetAsync(key, "cooldown", expire);
+    }
+    // 取得Email重發驗證信的冷卻時間(By userId)
+    public async Task<bool> GetEmailResendCooldown(Guid userId)
+    {
+        var key = RedisKeys.EmailResendCooldown(userId);
+        var result = await _db.StringGetAsync(key);
+        // 如果result為Null或Empty，表示沒有冷卻時間，返回false；如果有值，表示正在冷卻中，返回true
+        return !result.IsNullOrEmpty;
+    }
 }

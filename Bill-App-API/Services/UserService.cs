@@ -8,25 +8,28 @@ using Bill_App_API.Options;
 using Bill_App_API.Utils;
 using Bill_App_Cache.Dtos;
 using Bill_App_Cache.Interface;
+using Bill_App_Cache.Services;
 using Google.Apis.Auth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using Org.BouncyCastle.Ocsp;
 
 namespace Bill_App_API.Services;
 
 public class UserService(BillDbContext dbContext, IRedisService redisService, ITokenService tokenService, IEmailService emailService,
     IOptions<MaxDeviceOptions> maxDeviceOptions, IOptions<RefreshTokenOptions> refreshTokenOptions, IOptions<UserCacheOptions> userCacheOptions,
-    IOptions<UserVerifyEmailOptions> userVerifyEmailOptions, IOptions<AppOptions> appOptions, IOptions<GoogleAuthOptions> googleAuthOptions,
-    IOptions<FrontendOptions> frontendOptions) : IUserService
+    IOptions<UserVerifyEmailOptions> userVerifyEmailOptions, IOptions<GoogleAuthOptions> googleAuthOptions, IOptions<FrontendOptions> frontendOptions
+) : IUserService
 {
     private readonly RefreshTokenOptions _refreshTokenOptions = refreshTokenOptions.Value;
     private readonly UserCacheOptions _userCacheOptions = userCacheOptions.Value;
     private readonly UserVerifyEmailOptions _userVerifyEmailOptions = userVerifyEmailOptions.Value;
-    private readonly AppOptions _appOptions = appOptions.Value;
     private readonly GoogleAuthOptions _googleAuthOptions = googleAuthOptions.Value;
     private readonly FrontendOptions _frontendOptions = frontendOptions.Value;
-
+    /// <summary>
+    /// 重送驗證碼
+    /// </summary>
+    /// <param name="email"></param>
+    /// <returns></returns>
     public async Task ResendVerifyEmail(string email)
     {
         var user = await dbContext.Users.FirstOrDefaultAsync(item => item.Email == email);
@@ -35,8 +38,16 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
             return;
         }
         Guid userId = user.Id;
+        var isCooldownExist = await redisService.GetEmailResendCooldown(userId);
+        if(isCooldownExist)
+        {
+            return;
+        }
         Guid token = Guid.NewGuid();
-        await redisService.SetEmailVerifyTokenAsync(token, userId, TimeSpan.FromHours(_userVerifyEmailOptions.TtlInHours));
+        await Task.WhenAll(
+            redisService.SetEmailResendCooldown(userId, TimeSpan.FromSeconds(60)),
+            redisService.SetEmailVerifyTokenAsync(token, userId, TimeSpan.FromHours(_userVerifyEmailOptions.TtlInHours))
+        );
         var url = $"{_frontendOptions.Url}/verifyEmail/{token}";
         await emailService.SendAsync(email, "Bill App - 驗證你的帳號", $"<h3>歡迎註冊 Bill App</h3><p>請點擊下方連結驗證你的信箱：</p><a href=\"{url}\">點擊驗證</a><p>此連結將在 {_userVerifyEmailOptions.TtlInHours} 小時後失效。</p>");
         Console.WriteLine($"[DEV] 驗證連結: {url}");
@@ -64,7 +75,6 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
             await dbContext.SaveChangesAsync();
             Guid token = Guid.NewGuid();
             await redisService.SetEmailVerifyTokenAsync(token, newUser.Id, TimeSpan.FromHours(_userVerifyEmailOptions.TtlInHours));
-            // TODO: 發送驗證信，內容包含驗證連結，連結中帶有token參數 (先用Console log 記錄下來 prod環境再發驗證信)
             var url = $"{_frontendOptions.Url}/verifyEmail/{token}";
             await emailService.SendAsync(req.Email, "Bill App - 驗證你的帳號", $"<h3>歡迎註冊 Bill App</h3><p>請點擊下方連結驗證你的信箱：</p><a href=\"{url}\">點擊驗證</a><p>此連結將在 {_userVerifyEmailOptions.TtlInHours} 小時後失效。</p>");
             Console.WriteLine($"[DEV] 驗證連結: {url}");
