@@ -1,16 +1,17 @@
 using Bill_App_API.Contexts;
 using Bill_App_API.Dtos;
-using Bill_App_API.Interfaces;
-using Bill_App_API.Models;
-using Bill_App_API.Utils;
-using Bill_App_API.Options;
 using Bill_App_API.Enums;
 using Bill_App_API.Exceptions;
+using Bill_App_API.Interfaces;
+using Bill_App_API.Models;
+using Bill_App_API.Options;
+using Bill_App_API.Utils;
 using Bill_App_Cache.Dtos;
 using Bill_App_Cache.Interface;
 using Google.Apis.Auth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Org.BouncyCastle.Ocsp;
 
 namespace Bill_App_API.Services;
 
@@ -25,6 +26,21 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
     private readonly AppOptions _appOptions = appOptions.Value;
     private readonly GoogleAuthOptions _googleAuthOptions = googleAuthOptions.Value;
     private readonly FrontendOptions _frontendOptions = frontendOptions.Value;
+
+    public async Task ResendVerifyEmail(string email)
+    {
+        var user = await dbContext.Users.FirstOrDefaultAsync(item => item.Email == email);
+        if(user is null || user.AuthProvider != AuthProviderEnum.Local || user.IsEmailVerified)
+        {
+            return;
+        }
+        Guid userId = user.Id;
+        Guid token = Guid.NewGuid();
+        await redisService.SetEmailVerifyTokenAsync(token, userId, TimeSpan.FromHours(_userVerifyEmailOptions.TtlInHours));
+        var url = $"{_frontendOptions.Url}/verifyEmail/{token}";
+        await emailService.SendAsync(email, "Bill App - 驗證你的帳號", $"<h3>歡迎註冊 Bill App</h3><p>請點擊下方連結驗證你的信箱：</p><a href=\"{url}\">點擊驗證</a><p>此連結將在 {_userVerifyEmailOptions.TtlInHours} 小時後失效。</p>");
+        Console.WriteLine($"[DEV] 驗證連結: {url}");
+    }
     /// <summary>
     /// 註冊
     /// </summary>
@@ -53,7 +69,6 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
             await emailService.SendAsync(req.Email, "Bill App - 驗證你的帳號", $"<h3>歡迎註冊 Bill App</h3><p>請點擊下方連結驗證你的信箱：</p><a href=\"{url}\">點擊驗證</a><p>此連結將在 {_userVerifyEmailOptions.TtlInHours} 小時後失效。</p>");
             Console.WriteLine($"[DEV] 驗證連結: {url}");
             return true;
-
         }
         return false;
     }
@@ -91,9 +106,9 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
         {
             throw new ApiException("帳號或密碼錯誤");
         }
-        if (user.AuthProvider == AuthProviderEnum.Google)
+        if (user.AuthProvider == AuthProviderEnum.Google || user.Password is null)
         {
-            throw new ApiException("該帳號已綁定 Google，請用 Google 登入");
+            throw new ApiException("該帳號已綁定 Google，請用 Google 登入", 400, ResponseCodeEnum.AccountBoundToGoogle);
         }
         bool isVerify = PasswordHasher.VerifyPassword(req.Password, user.Password);
         if (!isVerify)
@@ -102,7 +117,7 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
         }
         if (!user.IsEmailVerified)
         {
-            throw new ApiException("信箱未驗證");
+            throw new ApiException("信箱未驗證", 400, ResponseCodeEnum.EmailNotVerified);
         }
         var userSub = new UserSubHash(
             UserId: user.Id,
@@ -230,7 +245,7 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
         // 已存在 + Local 帳號 → 拒絕登入
         if (user is not null && user.AuthProvider == AuthProviderEnum.Local)
         {
-            throw new ApiException("該 Email 已使用密碼註冊，請用密碼登入");
+            throw new ApiException("該 Email 已使用密碼註冊，請用密碼登入", 400, ResponseCodeEnum.AccountBoundToLocal);
         }
 
         // 不存在 → 自動建立 Google 帳號

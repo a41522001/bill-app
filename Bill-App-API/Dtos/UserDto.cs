@@ -24,3 +24,7 @@ public record UserProfileResponse(
     int AuthProvider,
     bool IsEmailVerified
 );
+
+public record UserResendVerifyEmailRequest(
+    string Email
+);

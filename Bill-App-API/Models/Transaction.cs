@@ -8,7 +8,7 @@ public class Transaction
     public required decimal Amount { get; set; }
     public string? Note { get; set; }
     public required TransactionTypeEnum Type { get; set; }
-    public required DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Foreign key
     public Guid UserId { get; set; }

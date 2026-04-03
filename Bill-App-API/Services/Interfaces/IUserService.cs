@@ -12,4 +12,5 @@ public interface IUserService
     Task<bool> VerifyEmail(Guid token);
     Task<UserLoginResponse> GoogleLogin(string idToken);
     Task<UserProfileResponse> GetProfile(Guid userId);
+    Task ResendVerifyEmail(string email);
 }

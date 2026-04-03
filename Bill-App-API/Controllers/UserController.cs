@@ -15,7 +15,17 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
     private readonly JwtOptions _jwtOptions = jwtOptions.Value;
     private readonly RefreshTokenOptions _refreshTokenOptions = refreshTokenOptions.Value;
     private readonly AuthCookieOptions _authCookieOptions = authCookieOptions.Value;
-
+    /// <summary>
+    /// 重送驗證信
+    /// </summary>
+    /// <param name="req"></param>
+    /// <returns></returns>
+    [HttpPost("resendVerifyEmail")]
+    public async Task<ActionResult> ResendVerifyEmail([FromBody] UserResendVerifyEmailRequest req)
+    {
+        await userService.ResendVerifyEmail(req.Email);
+        return Ok("若該信箱已註冊，驗證信已寄出");
+    }
     /// <summary>
     /// 註冊
     /// </summary>

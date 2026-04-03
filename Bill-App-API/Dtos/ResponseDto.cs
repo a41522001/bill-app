@@ -1,3 +1,4 @@
+using Bill_App_API.Enums;
 namespace Bill_App_API.Dtos;
 
 public class ResponseWrap<T>
@@ -6,9 +7,9 @@ public class ResponseWrap<T>
     public int Code { get; set; }
     public string Message { get; set; } = string.Empty;
     public DateTime Time { get; set; } = DateTime.UtcNow;
-    public static ResponseWrap<T> Success(T? data, string message = "成功", int code = 0)
+    public static ResponseWrap<T> Success(T? data, string message = "成功", int code = ResponseCodeEnum.Success)
       => new() { Data = data, Code = code, Message = message };
 
-    public static ResponseWrap<T> Error(string message, int code = 1)
+    public static ResponseWrap<T> Error(string message, int code = ResponseCodeEnum.Error)
       => new() { Data = default, Message = message, Code = code };
 }
