@@ -269,6 +269,7 @@ Whitelist 使用 `StartsWithSegments` 比對，支援動態路徑（如 `/api/us
 - `POST /api/transaction` — 新增交易記錄（CategoryId, Amount, Note），驗證 CategoryId 是否屬於該使用者
 - `GET /api/transaction` — 查詢交易明細（分頁 + 篩選），支援 Type、CategoryId、StartDate、EndDate、Page、Limit
 - `GET /api/transaction/typeList` — 取得交易類型下拉選單（`SelectListDto[]`：Title + Value）
+- `PUT /api/transaction` — 修改交易記錄（CategoryId, Amount, Note），CategoryId 變更時驗證是否屬於該使用者
 - `DELETE /api/transaction/{id}` — 硬刪除交易記錄，驗證交易是否屬於該使用者
 - Transaction 不儲存 Type，透過 Navigation Property 從 Category 取得 Type
 - 查詢回傳 `PaginatedResponse<TransactionResponse>`，包含 Data + Meta（Total, Page, Limit, TotalPages）

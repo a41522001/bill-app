@@ -29,4 +29,11 @@ public record TransactionResponse
     Guid CategoryId,
     string CategoryName
 );
+public record TransactionUpdateRequest
+(
+    Guid Id,
+    string? Note,
+    Guid? CategoryId,
+    Decimal? Amount
+);
 

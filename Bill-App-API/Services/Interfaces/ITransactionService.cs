@@ -8,4 +8,5 @@ public interface ITransactionService
     Task<PaginatedResponse<TransactionResponse>> GetTransaction(TransactionQueryRequest req, Guid userId);
     List<SelectListDto> GetTransactionTypeList();
     Task DeleteTransaction(Guid id, Guid userId);
+    Task UpdateTransaction(TransactionUpdateRequest req, Guid userId);
 }

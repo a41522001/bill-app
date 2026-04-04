@@ -388,6 +388,33 @@ GET /api/transaction?type=1&startDate=2024-12-11T16:00:00.000Z&endDate=2024-12-1
 
 ---
 
+### PUT `/api/transaction`
+
+修改交易記錄。所有欄位皆為可選（除了 Id），僅更新有帶值的欄位。CategoryId 變更時會驗證是否屬於該使用者。
+
+**Request Body:**
+
+```json
+{
+  "id": "guid",
+  "note": "string | null",
+  "categoryId": "guid | null",
+  "amount": 100.50
+}
+```
+
+- 僅需帶要修改的欄位（`id` 必帶）
+
+**Response:**
+
+| HTTP Status | data | message |
+|-------------|------|---------|
+| 200 | `"修改成功"` | 成功 |
+| 400 | `null` | 無此交易明細 |
+| 400 | `null` | 無此類別 |
+
+---
+
 ### DELETE `/api/transaction/{id:guid}`
 
 刪除交易記錄（硬刪除）。
@@ -426,6 +453,7 @@ GET /api/transaction?type=1&startDate=2024-12-11T16:00:00.000Z&endDate=2024-12-1
 - `POST /api/transaction`
 - `GET /api/transaction`
 - `GET /api/transaction/typeList`
+- `PUT /api/transaction`
 - `DELETE /api/transaction/{id}`
 
 ## 不需要登入的 API（Whitelist）

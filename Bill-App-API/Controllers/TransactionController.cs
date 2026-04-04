@@ -35,4 +35,11 @@ public class TransactionController(ITransactionService transactionService) : Con
         await transactionService.DeleteTransaction(id, userId);
         return Ok("刪除成功");
     }
+    [HttpPut]
+    public async Task<ActionResult> UpdateTransaction([FromBody] TransactionUpdateRequest req)
+    {
+        var userId = HttpContext.GetUserId();
+        await transactionService.UpdateTransaction(req, userId);
+        return Ok("修改成功");
+    }
 }

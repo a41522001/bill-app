@@ -103,6 +103,13 @@ public class TransactionService(BillDbContext dbContext) : ITransactionService
                 )
             )).ToList();
     }
+    /// <summary>
+    /// 刪除交易明細
+    /// </summary>
+    /// <param name="id"></param>
+    /// <param name="userId"></param>
+    /// <returns></returns>
+    /// <exception cref="ApiException"></exception>
     public async Task DeleteTransaction(Guid id, Guid userId)
     {
         var transaction = await dbContext.Transactions.FirstOrDefaultAsync(item => item.UserId == userId && item.Id == id);
@@ -111,6 +118,26 @@ public class TransactionService(BillDbContext dbContext) : ITransactionService
             throw new ApiException("無此交易明細", 400);
         }
         dbContext.Transactions.Remove(transaction);
+        await dbContext.SaveChangesAsync();
+    }
+    public async Task UpdateTransaction(TransactionUpdateRequest req, Guid userId)
+    {
+        var transaction = await dbContext.Transactions.FirstOrDefaultAsync(item => item.Id == req.Id && item.UserId == userId);
+        if(transaction is null)
+        {
+            throw new ApiException("無此交易明細", 400);
+        }
+        if(req.CategoryId is not null)
+        {
+            var category = await dbContext.Categories.FirstOrDefaultAsync(item => item.UserId == userId && item.Id == req.CategoryId);
+            if(category is null)
+            {
+                throw new ApiException("無此類別", 400);
+            }
+            transaction.CategoryId = req.CategoryId.Value;
+        }
+        transaction.Note = req.Note ?? transaction.Note;
+        transaction.Amount = req.Amount ?? transaction.Amount;
         await dbContext.SaveChangesAsync();
     }
 }
