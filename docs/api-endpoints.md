@@ -304,6 +304,102 @@ Google OAuth 登入（ID Token 驗證）。成功時 Set-Cookie: `accessToken`�
 | HTTP Status | data | message |
 |-------------|------|---------|
 | 200 | `"新增成功"` | 成功 |
+| 400 | `null` | 無此類別 |
+
+---
+
+### GET `/api/transaction`
+
+查詢交易明細（分頁 + 篩選）。
+
+**Query Parameters:**
+
+| 參數 | 類型 | 必填 | 預設值 | 說明 |
+|------|------|------|--------|------|
+| `type` | int | 否 | — | `0` = Income, `1` = Expense |
+| `categoryId` | guid | 否 | — | 篩選特定類別 |
+| `startDate` | DateTime (UTC) | 否 | — | 起始時間（含），前端帶 ISO 8601 格式 |
+| `endDate` | DateTime (UTC) | 否 | — | 結束時間（含），前端帶 ISO 8601 格式 |
+| `page` | int | 否 | 1 | 頁碼 |
+| `limit` | int | 否 | 10 | 每頁筆數 |
+
+**Request 範例:**
+
+```
+GET /api/transaction?type=1&startDate=2024-12-11T16:00:00.000Z&endDate=2024-12-12T15:59:59.000Z&page=1&limit=10
+```
+
+**Response:**
+
+| HTTP Status | data | message |
+|-------------|------|---------|
+| 200 | `PaginatedResponse<TransactionResponse>` | 成功 |
+
+**PaginatedResponse\<TransactionResponse\>:**
+
+```json
+{
+  "data": [
+    {
+      "id": "guid",
+      "amount": 100.50,
+      "note": "string | null",
+      "createdAt": "2024-12-12T08:30:00Z",
+      "type": 0,
+      "typeName": "收入",
+      "categoryId": "guid",
+      "categoryName": "薪水"
+    }
+  ],
+  "meta": {
+    "total": 50,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 5
+  }
+}
+```
+
+- `type`: `0` = Income, `1` = Expense
+- `typeName`: `"收入"` / `"支出"`
+
+---
+
+### GET `/api/transaction/typeList`
+
+取得交易類型下拉選單選項。
+
+**Request:** 無
+
+**Response:**
+
+| HTTP Status | data | message |
+|-------------|------|---------|
+| 200 | `SelectListDto[]` | 成功 |
+
+**SelectListDto[]:**
+
+```json
+[
+  { "title": "收入", "value": "0" },
+  { "title": "支出", "value": "1" }
+]
+```
+
+---
+
+### DELETE `/api/transaction/{id:guid}`
+
+刪除交易記錄（硬刪除）。
+
+**Request:** URL path 帶 GUID id
+
+**Response:**
+
+| HTTP Status | data | message |
+|-------------|------|---------|
+| 200 | `"刪除成功"` | 成功 |
+| 400 | `null` | 無此交易明細 |
 
 ---
 
@@ -328,6 +424,9 @@ Google OAuth 登入（ID Token 驗證）。成功時 Set-Cookie: `accessToken`�
 - `GET /api/category`
 - `DELETE /api/category/{id}`
 - `POST /api/transaction`
+- `GET /api/transaction`
+- `GET /api/transaction/typeList`
+- `DELETE /api/transaction/{id}`
 
 ## 不需要登入的 API（Whitelist）
 
