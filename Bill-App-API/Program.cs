@@ -104,6 +104,7 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
+builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 
 // Redis
 builder.Services.AddSingleton<IConnectionMultiplexer>(

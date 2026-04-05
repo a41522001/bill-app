@@ -430,6 +430,65 @@ GET /api/transaction?type=1&startDate=2024-12-11T16:00:00.000Z&endDate=2024-12-1
 
 ---
 
+## Statistics API (`/api/statistics`)
+
+所有 Statistics API **需要登入**。
+
+### GET `/api/statistics`
+
+收支統計摘要。依時間範圍統計各類別的收入/支出金額及佔比。
+
+**Query Parameters:**
+
+| 參數 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| `startDate` | DateTime (UTC) | 是 | 起始時間（含），ISO 8601 格式 |
+| `endDate` | DateTime (UTC) | 是 | 結束時間（不含），ISO 8601 格式 |
+
+> 注意：`endDate` 為**不含**（`< endDate`），與 Transaction 查詢的 `<=` 不同。
+
+**Request 範例:**
+
+```
+GET /api/statistics?startDate=2026-04-01T00:00:00Z&endDate=2026-05-01T00:00:00Z
+```
+
+**Response:**
+
+| HTTP Status | data | message |
+|-------------|------|---------|
+| 200 | `StatisticsResponse` | 成功 |
+
+**StatisticsResponse:**
+
+```json
+{
+  "income": {
+    "total": 52800,
+    "items": [
+      { "categoryName": "薪水", "amount": 52000, "percentage": 98.48 },
+      { "categoryName": "ETF配息", "amount": 800, "percentage": 1.52 }
+    ]
+  },
+  "expense": {
+    "total": 17950,
+    "items": [
+      { "categoryName": "房租", "amount": 12000, "percentage": 66.85 },
+      { "categoryName": "飲食", "amount": 3600, "percentage": 20.06 },
+      { "categoryName": "娛樂", "amount": 1800, "percentage": 10.03 },
+      { "categoryName": "交通", "amount": 1400, "percentage": 7.8 },
+      { "categoryName": "日用品", "amount": 950, "percentage": 5.29 }
+    ]
+  }
+}
+```
+
+- `items` 依金額由高到低排序
+- `percentage` 為該類別佔該類型（income/expense）總額的百分比，保留小數兩位
+- 若該類型無任何交易，`total` 為 `0`，`items` 為空陣列
+
+---
+
 ## ResponseCode 一覽
 
 | Code | 常數名稱 | 說明 | 前端處理建議 |
@@ -455,6 +514,7 @@ GET /api/transaction?type=1&startDate=2024-12-11T16:00:00.000Z&endDate=2024-12-1
 - `GET /api/transaction/typeList`
 - `PUT /api/transaction`
 - `DELETE /api/transaction/{id}`
+- `GET /api/statistics`
 
 ## 不需要登入的 API（Whitelist）
 

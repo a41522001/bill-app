@@ -41,9 +41,9 @@ dotnet ef database update --project Bill-App-API
 
 ```
 Bill-App-API/
-├── Controllers/    # HTTP endpoints (UserController, CategoryController, TransactionController, RedisController)
-├── Services/       # Business logic (UserService, TokenService, CategoryService, EmailService, TransactionService)
-│   └── Interfaces/ # Service contracts (IUserService, ITokenService, ICategoryService, IEmailService, ITransactionService)
+├── Controllers/    # HTTP endpoints (UserController, CategoryController, TransactionController, StatisticsController, RedisController)
+├── Services/       # Business logic (UserService, TokenService, CategoryService, EmailService, TransactionService, StatisticsService)
+│   └── Interfaces/ # Service contracts (IUserService, ITokenService, ICategoryService, IEmailService, ITransactionService, IStatisticsService)
 ├── Middlewares/     # ExceptionHandlingMiddleware, AccessTokenMiddleware, RefreshTokenMiddleware, TokenMiddlewareWhiteList
 ├── Filters/        # LogActionFilter, ResultWrapFilter (GlobalExceptionFilter 已移至 ExceptionHandlingMiddleware)
 ├── Exceptions/     # ApiException (custom exception with StatusCode)
@@ -275,6 +275,16 @@ Whitelist 使用 `StartsWithSegments` 比對，支援動態路徑（如 `/api/us
 - 查詢回傳 `PaginatedResponse<TransactionResponse>`，包含 Data + Meta（Total, Page, Limit, TotalPages）
 - 時間篩選由前端傳 UTC DateTime（ISO 8601 格式）
 
+## Statistics API
+
+- `GET /api/statistics` — 收支統計摘要（requires auth）
+- Query params: `StartDate`（required, UTC DateTime）、`EndDate`（required, UTC DateTime）
+- 前端負責時區轉換，傳入 ISO 8601 UTC 格式（如 `2026-04-01T00:00:00Z`）
+- 後端篩選條件：`>= StartDate AND < EndDate`
+- 使用 EF Core LINQ GroupBy（Category Type + Name）+ Navigation Property 自動 JOIN Category
+- 回傳 `StatisticsResponse`，包含 Income / Expense 兩組，各有 Total 和 Items（CategoryName, Amount, Percentage）
+- Percentage 以 `Math.Round(amount / groupTotal * 100, 2)` 計算，保留小數兩位
+
 ## Environment Variables
 
 Required in `.env` (loaded via DotNetEnv):
@@ -304,6 +314,7 @@ SMTP_SENDER_PASSWORD=<sender password or app password>
 
 ## Important Notes
 
+- **更新 CLAUDE.md 後，務必檢查 `docs/` 資料夾**：確認 `docs/api-endpoints.md` 是否需要新增/修改對應的 API 端點文件，以及 `docs/response-codes.md` 是否需要補上新的 ResponseCode。若有新功能涉及獨立流程（如 OAuth、Email），評估是否需要在 `docs/` 下新增說明文件。
 - **Ignore `bin/` and `obj/` folders** when scanning or searching the codebase
 - `.env` files are gitignored - never commit secrets
 - `.github/workflows/` exists but has no CI/CD pipelines yet

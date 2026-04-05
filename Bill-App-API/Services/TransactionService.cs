@@ -120,6 +120,13 @@ public class TransactionService(BillDbContext dbContext) : ITransactionService
         dbContext.Transactions.Remove(transaction);
         await dbContext.SaveChangesAsync();
     }
+    /// <summary>
+    /// 修改交易明細
+    /// </summary>
+    /// <param name="req"></param>
+    /// <param name="userId"></param>
+    /// <returns></returns>
+    /// <exception cref="ApiException"></exception>
     public async Task UpdateTransaction(TransactionUpdateRequest req, Guid userId)
     {
         var transaction = await dbContext.Transactions.FirstOrDefaultAsync(item => item.Id == req.Id && item.UserId == userId);
