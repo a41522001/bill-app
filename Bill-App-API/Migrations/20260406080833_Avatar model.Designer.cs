@@ -3,6 +3,7 @@ using System;
 using Bill_App_API.Contexts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Bill_App_API.Migrations
 {
     [DbContext(typeof(BillDbContext))]
-    partial class BillDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260406080833_Avatar model")]
+    partial class Avatarmodel
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -47,7 +50,7 @@ namespace Bill_App_API.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("Avatars");
+                    b.ToTable("Avatar");
                 });
 
             modelBuilder.Entity("Bill_App_API.Models.Category", b =>

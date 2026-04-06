@@ -41,7 +41,6 @@ public class StatisticsService(BillDbContext dbContext) : IStatisticsService
                     : 0
             ))
             .ToList();
-
         var expenseItems = result
             .Where(r => r.CategoryType == TransactionTypeEnum.Expense)
             .OrderByDescending(r => r.Total)

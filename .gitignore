@@ -19,5 +19,9 @@ appsettings.Local.json
 ## [OS - macOS]
 .DS_Store
 
+## [上傳檔案]
+Bill-App-API/wwwroot/avatars/*
+!Bill-App-API/wwwroot/avatars/.gitkeep
+
 ## [Docker]
 .dockerignore

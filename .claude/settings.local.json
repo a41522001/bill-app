@@ -6,7 +6,8 @@
       "mcp__notion__notion-search",
       "mcp__notion__notion-fetch",
       "mcp__notion__notion-create-pages",
-      "Bash(xargs wc:*)"
+      "Bash(xargs wc:*)",
+      "Bash(dotnet build:*)"
     ]
   }
 }

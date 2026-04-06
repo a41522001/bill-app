@@ -17,6 +17,7 @@ using StackExchange.Redis;
 namespace Bill_App_API.Services;
 
 public class UserService(BillDbContext dbContext, IRedisService redisService, ITokenService tokenService, IEmailService emailService,
+    IFileStorageService fileStorageService,
     IOptions<MaxDeviceOptions> maxDeviceOptions, IOptions<RefreshTokenOptions> refreshTokenOptions, IOptions<UserCacheOptions> userCacheOptions,
     IOptions<UserVerifyEmailOptions> userVerifyEmailOptions, IOptions<GoogleAuthOptions> googleAuthOptions, IOptions<FrontendOptions> frontendOptions
 ) : IUserService
@@ -296,7 +297,7 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
     /// </summary>
     public async Task<UserProfileResponse> GetProfile(Guid userId)
     {
-        var user = await dbContext.Users.FirstOrDefaultAsync(item => item.Id == userId);
+        var user = await dbContext.Users.Include(u => u.Avatar).FirstOrDefaultAsync(item => item.Id == userId);
         if (user is null)
         {
             throw new ApiException("使用者不存在");
@@ -305,8 +306,45 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
             Name: user.Name,
             Email: user.Email,
             AuthProvider: (int)user.AuthProvider,
-            IsEmailVerified: user.IsEmailVerified
+            IsEmailVerified: user.IsEmailVerified,
+            AvatarOriginalUrl: user.Avatar?.OriginalUrl,
+            AvatarThumbUrl: user.Avatar?.ThumbUrl
         );
+    }
+    public async Task UploadAvatar(IFormFile file, Guid userId)
+    {
+        // 驗證檔案格式
+        var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp" };
+        if (!allowedTypes.Contains(file.ContentType))
+        {
+            throw new ApiException("僅支援 jpg、png、webp 格式", 400);
+        }
+        // 驗證檔案大小（上限 2MB）
+        if (file.Length > 10 * 1024 * 1024)
+        {
+            throw new ApiException("檔案大小不可超過 10MB", 400);
+        }
+        // 上傳檔案（壓縮 + resize）
+        var (originalPath, thumbPath) = await fileStorageService.UploadAvatarAsync(file);
+        // 刪除舊 Avatar
+        var oldAvatar = await dbContext.Avatars.FirstOrDefaultAsync(a => a.UserId == userId);
+        if (oldAvatar is not null)
+        {
+            await Task.WhenAll(
+                fileStorageService.DeleteAsync(oldAvatar.OriginalUrl),
+                fileStorageService.DeleteAsync(oldAvatar.ThumbUrl)
+            );
+            dbContext.Avatars.Remove(oldAvatar);
+        }
+        // 新增 Avatar record
+        var avatar = new Avatar
+        {
+            OriginalUrl = originalPath,
+            ThumbUrl = thumbPath,
+            UserId = userId
+        };
+        dbContext.Avatars.Add(avatar);
+        await dbContext.SaveChangesAsync();
     }
     /// <summary>
     /// 忘記密碼

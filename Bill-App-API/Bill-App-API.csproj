@@ -18,11 +18,16 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.5" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.5" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.7" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Bill-App-Cache\Bill-App-Cache.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="wwwroot\avatars\" />
   </ItemGroup>
 
 </Project>

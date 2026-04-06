@@ -13,6 +13,7 @@ Monorepo solution with two projects: `Bill-App-API` (Web API) and `Bill-App-Cach
 - **Auth**: JWT (access token) + GUID (refresh token) + BCrypt password hashing + Email verification + Google OAuth (ID Token)
 - **Google Auth**: Google.Apis.Auth (ID Token verification)
 - **Email**: MailKit (SMTP via Gmail or other providers)
+- **Image Processing**: SixLabors.ImageSharp (resize + WebP conversion)
 - **Infra**: Docker Compose (postgres + redis)
 
 ## Build & Run
@@ -42,13 +43,13 @@ dotnet ef database update --project Bill-App-API
 ```
 Bill-App-API/
 ├── Controllers/    # HTTP endpoints (UserController, CategoryController, TransactionController, StatisticsController, RedisController)
-├── Services/       # Business logic (UserService, TokenService, CategoryService, EmailService, TransactionService, StatisticsService)
-│   └── Interfaces/ # Service contracts (IUserService, ITokenService, ICategoryService, IEmailService, ITransactionService, IStatisticsService)
+├── Services/       # Business logic (UserService, TokenService, CategoryService, EmailService, TransactionService, StatisticsService, LocalFileStorageService)
+│   └── Interfaces/ # Service contracts (IUserService, ITokenService, ICategoryService, IEmailService, ITransactionService, IStatisticsService, IFileStorageService)
 ├── Middlewares/     # ExceptionHandlingMiddleware, AccessTokenMiddleware, RefreshTokenMiddleware, TokenMiddlewareWhiteList
 ├── Filters/        # LogActionFilter, ResultWrapFilter (GlobalExceptionFilter 已移至 ExceptionHandlingMiddleware)
 ├── Exceptions/     # ApiException (custom exception with StatusCode)
 ├── Options/        # JwtOptions, MaxDeviceOptions, RefreshTokenOptions, UserCacheOptions, UserVerifyEmailOptions, AppOptions, GoogleAuthOptions, SmtpOptions, FrontendOptions, AuthCookieOptions
-├── Models/         # EF Core entities (User, Category, Transaction)
+├── Models/         # EF Core entities (User, Category, Transaction, Avatar)
 ├── Dtos/           # Request/Response records + ResponseWrap<T>
 ├── Enums/          # TransactionTypeEnum, AuthProviderEnum (Local=0, Google=1), ResponseCodeEnum
 ├── Contexts/       # BillDbContext
@@ -254,8 +255,20 @@ Whitelist 使用 `StartsWithSegments` 比對，支援動態路徑（如 `/api/us
 ### Profile API
 
 - `GET /api/user/profile` (requires auth)
-- 透過 `HttpContext.GetUserId()` 取得 userId → 查 DB → 回傳 `UserProfileResponse`（Name, Email, AuthProvider, IsEmailVerified）
+- 透過 `HttpContext.GetUserId()` 取得 userId → 查 DB（Include Avatar）→ 回傳 `UserProfileResponse`（Name, Email, AuthProvider, IsEmailVerified, AvatarOriginalUrl, AvatarThumbUrl）
 - 前端登入後呼叫此 API 取得使用者資訊，存入 Pinia auth store
+
+### Avatar API
+
+- `POST /api/user/avatar` (requires auth, `multipart/form-data`)
+- 上傳頭像圖片，支援 jpg / png / webp，上限 5MB
+- 後端透過 ImageSharp 統一轉 WebP，產生兩張圖：
+  - Original: 400x400 → `avatars/{guid}_original.webp`
+  - Thumbnail: 100x100 → `avatars/{guid}_thumb.webp`
+- 儲存架構透過 `IFileStorageService` 介面抽象，目前實作為 `LocalFileStorageService`（存到 `wwwroot/avatars/`），未來可切換為 S3
+- Avatar 為獨立 table，與 User 一對一關係
+- 換頭像時刪除舊檔案 + 舊 DB record，再新增新的
+- DB 存相對路徑，前端透過環境變數組合完整 URL
 
 ## Category API
 

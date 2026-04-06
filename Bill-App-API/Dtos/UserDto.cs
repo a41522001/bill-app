@@ -22,7 +22,9 @@ public record UserProfileResponse(
     string Name,
     string Email,
     int AuthProvider,
-    bool IsEmailVerified
+    bool IsEmailVerified,
+    string? AvatarOriginalUrl,
+    string? AvatarThumbUrl
 );
 
 public record UserResendVerifyEmailRequest(

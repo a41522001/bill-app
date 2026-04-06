@@ -105,6 +105,9 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
+builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
+// Deploy換成S3
+//builder.Services.AddScoped<IFileStorageService, S3FileStorageService>();
 
 // Redis
 builder.Services.AddSingleton<IConnectionMultiplexer>(
@@ -128,6 +131,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseStaticFiles();
 app.UseHttpsRedirection();
 app.UseCors();
 app.UseMiddleware<AccessTokenMiddleware>();

@@ -120,11 +120,37 @@ Google OAuth 登入（ID Token 驗證）。成功時 Set-Cookie: `accessToken`�
   "name": "string",
   "email": "string",
   "authProvider": 0,
-  "isEmailVerified": true
+  "isEmailVerified": true,
+  "avatarOriginalUrl": "avatars/{guid}_original.webp | null",
+  "avatarThumbUrl": "avatars/{guid}_thumb.webp | null"
 }
 ```
 
 - `authProvider`: `0` = Local, `1` = Google
+- `avatarOriginalUrl` / `avatarThumbUrl`: 未上傳頭像時為 `null`，前端需組合 base URL 取得完整圖片路徑
+
+---
+
+### POST `/api/user/avatar`
+
+上傳頭像。**需要登入**。使用 `multipart/form-data`。
+
+**Request:** `form-data`，key 為 `file`，type 為 `File`
+
+**限制：**
+- 格式：jpg / png / webp
+- 大小：上限 5MB
+- 後端統一轉為 WebP，產生 original (400x400) + thumbnail (100x100) 兩張
+
+**Response:**
+
+| HTTP Status | data | message |
+|-------------|------|---------|
+| 200 | `"上傳成功"` | 成功 |
+| 400 | `null` | 僅支援 jpg、png、webp 格式 |
+| 400 | `null` | 檔案大小不可超過 5MB |
+
+> 重新上傳會自動覆蓋舊頭像（刪除舊檔案 + 舊 DB record）。
 
 ---
 
@@ -506,6 +532,7 @@ GET /api/statistics?startDate=2026-04-01T00:00:00Z&endDate=2026-05-01T00:00:00Z
 以下 API 需要有效的 `accessToken` cookie（或透過 `refreshToken` 自動續期）：
 
 - `GET /api/user/profile`
+- `POST /api/user/avatar`
 - `POST /api/category`
 - `GET /api/category`
 - `DELETE /api/category/{id}`
