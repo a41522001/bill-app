@@ -131,11 +131,30 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
         await userService.ResetPassword(req);
         return Ok("重設密碼成功，請用新密碼登入");
     }
+    /// <summary>
+    /// 上傳頭像
+    /// </summary>
+    /// <param name="file"></param>
+    /// <returns></returns>
     [HttpPost("avatar")]
     public async Task<ActionResult> UploadAvatar([FromForm] IFormFile file)
     {
         var userId = HttpContext.GetUserId();
         await userService.UploadAvatar(file, userId);
         return Ok("上傳成功");
+    }
+    /// <summary>
+    /// 修改密碼(登入狀態下)
+    /// </summary>
+    /// <param name=""></param>
+    /// <returns></returns>
+    [HttpPut("password")]
+    public async Task<ActionResult> ChangePassword([FromBody] UserChangePasswordRequest req)
+    {
+        var userId = HttpContext.GetUserId();
+        await userService.ChangePassword(req, userId);
+        Response.Cookies.Delete("accessToken", _authCookieOptions.Create());
+        Response.Cookies.Delete("refreshToken", _authCookieOptions.Create());
+        return Ok("修改成功，請重新登入");
     }
 }

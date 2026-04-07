@@ -10,6 +10,7 @@ public class User
     public AuthProviderEnum AuthProvider { get; set; } = AuthProviderEnum.Local;
     public bool IsEmailVerified { get; set; } = false;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
     public Guid Sub { get; set; } = Guid.NewGuid();
 
     // Navigation

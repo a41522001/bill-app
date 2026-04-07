@@ -37,4 +37,8 @@ public record UserResetPasswordRequest(
     string Password,
     Guid Token
 );
+public record UserChangePasswordRequest(
+    string OldPassword,
+    string NewPassword
+);
 

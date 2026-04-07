@@ -237,6 +237,31 @@ Google OAuth 登入（ID Token 驗證）。成功時 Set-Cookie: `accessToken`�
 
 ---
 
+### PUT `/api/user/password`
+
+修改密碼（登入狀態下）。成功後強制所有裝置登出，清除當前 cookies。
+
+**Request Body:**
+
+```json
+{
+  "oldPassword": "string",
+  "newPassword": "string"
+}
+```
+
+**Response:**
+
+| HTTP Status | data | message |
+|-------------|------|---------|
+| 200 | `"修改成功，請重新登入"` | 成功 |
+| 400 | `null` | 該帳號已綁定 Google，無法修改密碼 |
+| 400 | `null` | 舊密碼錯誤 |
+
+> 成功後前端 cookies 已被清除，應導向登入頁。
+
+---
+
 ## Category API (`/api/category`)
 
 所有 Category API **需要登入**。
@@ -542,6 +567,7 @@ GET /api/statistics?startDate=2026-04-01T00:00:00Z&endDate=2026-05-01T00:00:00Z
 - `PUT /api/transaction`
 - `DELETE /api/transaction/{id}`
 - `GET /api/statistics`
+- `PUT /api/user/password`
 
 ## 不需要登入的 API（Whitelist）
 

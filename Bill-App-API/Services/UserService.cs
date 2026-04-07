@@ -12,7 +12,6 @@ using Bill_App_Cache.Services;
 using Google.Apis.Auth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using StackExchange.Redis;
 
 namespace Bill_App_API.Services;
 
@@ -311,6 +310,13 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
             AvatarThumbUrl: user.Avatar?.ThumbUrl
         );
     }
+    /// <summary>
+    /// 上傳頭像
+    /// </summary>
+    /// <param name="file"></param>
+    /// <param name="userId"></param>
+    /// <returns></returns>
+    /// <exception cref="ApiException"></exception>
     public async Task UploadAvatar(IFormFile file, Guid userId)
     {
         // 驗證檔案格式
@@ -405,6 +411,38 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
          );
         dbContext.Users.Update(user);
         await dbContext.SaveChangesAsync();
+    }
+    /// <summary>
+    /// 修改密碼(登入狀態下)
+    /// </summary>
+    /// <param name="req"></param>
+    /// <param name="userId"></param>
+    /// <returns></returns>
+    public async Task ChangePassword(UserChangePasswordRequest req, Guid userId)
+    {
+        var user = await dbContext.Users.FirstOrDefaultAsync(item => item.Id == userId);
+        if(user is null)
+        {
+            throw new ApiException("使用者不存在");
+        }
+        if(user.Password is null || user.AuthProvider == AuthProviderEnum.Google)
+        {
+            throw new ApiException("該帳號已綁定 Google，無法修改密碼", 400);
+        }
+        var isOldPasswordCorrect = PasswordHasher.VerifyPassword(req.OldPassword, user.Password);
+        if(!isOldPasswordCorrect)
+        {
+            throw new ApiException("舊密碼錯誤", 400);
+        }
+        var hashPassword = PasswordHasher.HashPassword(req.NewPassword);
+        user.Password = hashPassword;
+        user.UpdatedAt = DateTime.UtcNow;
+        await dbContext.SaveChangesAsync();
+
+        List<Guid> refreshTokens = await redisService.GetUserAllRefreshToken(user.Id);
+        var deleteTasks = refreshTokens.Select(refreshToken => redisService.DeleteRefreshToken(refreshToken));
+        await Task.WhenAll(deleteTasks);
+        await redisService.DeleteUserRefreshToken(user.Id);
     }
 }
 

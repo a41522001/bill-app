@@ -216,6 +216,18 @@ Whitelist 使用 `StartsWithSegments` 比對，支援動態路徑（如 `/api/us
 7. 並行刪除 reset token + 刪除整個 RT ZSet（`Task.WhenAll`）
 8. 儲存 DB 變更（強制所有裝置重新登入）
 
+### Change Password Flow (Authenticated)
+
+1. `PUT /api/user/password` (requires auth)
+2. Request body: `UserChangePasswordRequest { OldPassword, NewPassword }`
+3. 從 `HttpContext.GetUserId()` 取得 userId → 查 DB 取得 user
+4. 驗證 `AuthProvider` 非 Google 且 `Password` 非 null → 否則拋 ApiException「該帳號已綁定 Google，無法修改密碼」
+5. BCrypt 驗證 OldPassword → 錯誤則拋 ApiException「舊密碼錯誤」
+6. BCrypt hash NewPassword → 更新 `user.Password` + `user.UpdatedAt`
+7. 儲存 DB 變更
+8. 讀取該用戶所有 refresh token（ZSet）→ 並行刪除所有 RT Hash（`Task.WhenAll`）→ 刪除整個 RT ZSet
+9. Controller 清除 `accessToken` 和 `refreshToken` cookies（強制所有裝置重新登入）
+
 ### Login Flow (Local)
 
 1. Verify credentials (email + bcrypt password)

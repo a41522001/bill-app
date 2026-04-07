@@ -16,4 +16,5 @@ public interface IUserService
     Task ForgetPassword(string email);
     Task ResetPassword(UserResetPasswordRequest req);
     Task UploadAvatar(IFormFile file, Guid userId);
+    Task ChangePassword(UserChangePasswordRequest req, Guid userId);
 }
