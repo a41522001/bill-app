@@ -53,4 +53,8 @@ public interface IRedisService
     Task SetForgetPasswordCooldown(Guid userId, TimeSpan expire);
     // 取得Email重發忘記密碼的冷卻時間(By userId)
     Task<bool> GetForgetPasswordCooldown(Guid userId);
+    // 設置Rate Limit Login By IP 次數
+    Task<long> SetRateLimitLoginByIp(string ip, TimeSpan expire);
+    // 設置/設置/遞增 Rate Limit Login By Email 次數
+     Task<long> SetRateLimitLoginByEmail(string email, TimeSpan expire);
 }

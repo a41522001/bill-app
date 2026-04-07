@@ -45,10 +45,10 @@ Bill-App-API/
 ├── Controllers/    # HTTP endpoints (UserController, CategoryController, TransactionController, StatisticsController, RedisController)
 ├── Services/       # Business logic (UserService, TokenService, CategoryService, EmailService, TransactionService, StatisticsService, LocalFileStorageService)
 │   └── Interfaces/ # Service contracts (IUserService, ITokenService, ICategoryService, IEmailService, ITransactionService, IStatisticsService, IFileStorageService)
-├── Middlewares/     # ExceptionHandlingMiddleware, AccessTokenMiddleware, RefreshTokenMiddleware, TokenMiddlewareWhiteList
+├── Middlewares/     # ExceptionHandlingMiddleware, LoginRateLimitMiddleware, AccessTokenMiddleware, RefreshTokenMiddleware, TokenMiddlewareWhiteList
 ├── Filters/        # LogActionFilter, ResultWrapFilter (GlobalExceptionFilter 已移至 ExceptionHandlingMiddleware)
 ├── Exceptions/     # ApiException (custom exception with StatusCode)
-├── Options/        # JwtOptions, MaxDeviceOptions, RefreshTokenOptions, UserCacheOptions, UserVerifyEmailOptions, AppOptions, GoogleAuthOptions, SmtpOptions, FrontendOptions, AuthCookieOptions
+├── Options/        # JwtOptions, MaxDeviceOptions, RefreshTokenOptions, UserCacheOptions, UserVerifyEmailOptions, AppOptions, GoogleAuthOptions, SmtpOptions, FrontendOptions, AuthCookieOptions, LoginRateLimitOptions
 ├── Models/         # EF Core entities (User, Category, Transaction, Avatar)
 ├── Dtos/           # Request/Response records + ResponseWrap<T>
 ├── Enums/          # TransactionTypeEnum, AuthProviderEnum (Local=0, Google=1), ResponseCodeEnum
@@ -84,7 +84,7 @@ Bill-App-Cache/  (namespace: Bill_App_Cache)
 - **Async pattern**: All I/O operations must be async (`Task<T>`)
 - **EF Core**: Code-first approach with explicit migrations
 - **Nullable reference types**: Enabled project-wide
-- **Options pattern**: Strongly-typed config via `IOptions<T>` (JwtOptions, MaxDeviceOptions, RefreshTokenOptions, UserCacheOptions, UserVerifyEmailOptions, AppOptions, GoogleAuthOptions, SmtpOptions, FrontendOptions, AuthCookieOptions)
+- **Options pattern**: Strongly-typed config via `IOptions<T>` (JwtOptions, MaxDeviceOptions, RefreshTokenOptions, UserCacheOptions, UserVerifyEmailOptions, AppOptions, GoogleAuthOptions, SmtpOptions, FrontendOptions, AuthCookieOptions, LoginRateLimitOptions)
 - **Error handling**: `ApiException` for business errors (custom StatusCode + ResponseCode), `ExceptionHandlingMiddleware` 統一處理所有例外（Middleware + Controller），401 時自動清除 cookies
 - **Token Middleware Whitelist**: `TokenMiddlewareWhiteList` 靜態類別集中管理白名單路由，提供 `IsWhiteListed(PathString)` 方法
 - **CORS**: 允許前端 origin（`FRONT_END_URL` 環境變數），`AllowCredentials` 支援 cookie 跨域
@@ -117,13 +117,16 @@ Bill-App-Cache/  (namespace: Bill_App_Cache)
 | `SmtpOptions` | `SMTP_SENDER_PASSWORD` | - | 寄件者密碼（Gmail 需使用應用程式密碼） |
 | `FrontendOptions` | `FRONT_END_URL` | - | 前端應用程式 URL（用於產生驗證信連結） |
 | `AuthCookieOptions` | _(由環境決定)_ | `None` | Cookie SameSite 屬性（Production → `Strict`，其他 → `None`），提供 `Create()` factory 方法產生統一的 `CookieOptions` |
+| `LoginRateLimitOptions` | `LOGIN_RATE_LIMIT_BY_IP_COUNT` | 20 | 同一 IP 在時間窗口內最大登入嘗試次數 |
+| `LoginRateLimitOptions` | `LOGIN_RATE_LIMIT_BY_EMAIL_COUNT` | 5 | 同一 Email 在時間窗口內最大登入嘗試次數 |
+| `LoginRateLimitOptions` | `LOGIN_RATE_LIMIT_TTL_MINUTE` | 15 | Rate limit 時間窗口（分鐘） |
 
 **Middleware 注入規則**：`IOptions<T>` 是 Singleton，放 constructor；Scoped 服務（ITokenService、IRedisService、IUserService）放 `InvokeAsync` 參數。
 
 ### Middleware Pipeline
 
 ```
-Request → ExceptionHandlingMiddleware → AccessTokenMiddleware → RefreshTokenMiddleware → Controller
+Request → ExceptionHandlingMiddleware → LoginRateLimitMiddleware → AccessTokenMiddleware → RefreshTokenMiddleware → Controller
 ```
 
 **ExceptionHandlingMiddleware** (最外層):
@@ -131,6 +134,13 @@ Request → ExceptionHandlingMiddleware → AccessTokenMiddleware → RefreshTok
 - `ApiException` → 用其 StatusCode + `ResponseWrap<object>.Error(message)`
 - 其他 `Exception` → 500 + log + `ResponseWrap<object>.Error("伺服器內部錯誤")`
 - 401 時自動清除 `accessToken` 和 `refreshToken` cookies
+
+**LoginRateLimitMiddleware** (登入限流):
+- 僅攔截 `/api/user/login` 和 `/api/user/googleLogin` 路由，其餘直接放行
+- **IP 限流**（雙路由皆適用）：透過 `RemoteIpAddress` 取得 IP，Redis INCR 計數，超過上限回 429
+- **Email 限流**（僅 `/api/user/login`）：透過 `EnableBuffering()` 讀取 request body 取得 email，Redis INCR 計數，超過上限回 429
+- Google 登入因 ID Token 無法暴力破解，僅做 IP 限流
+- 超過限制時拋 `ApiException`（429），由 `ExceptionHandlingMiddleware` 統一處理
 
 **Whitelist routes** (skip AccessToken & RefreshToken middlewares，定義於 `TokenMiddlewareWhiteList`): `/api/user/login`, `/api/user/signup`, `/api/user/logout`, `/api/user/verifyEmail`, `/api/user/googleLogin`, `/api/user/resendVerifyEmail`, `/api/user/forgetPassword`, `/api/user/resetPassword`
 
@@ -163,6 +173,8 @@ Whitelist 使用 `StartsWithSegments` 比對，支援動態路徑（如 `/api/us
 | `email:resendCooldown#{userId}` | String | 重送驗證信冷卻（TTL 60s，防止短時間內重複請求） |
 | `passwordReset#{token}` | String | 忘記密碼 token → userId (GUID) with TTL |
 | `email:forgetCooldown#{userId}` | String | 忘記密碼信冷卻（TTL 60s，防止短時間內重複請求） |
+| `rateLimit:login:ip#{ip}` | String | 登入 IP 限流計數（INCR + TTL） |
+| `rateLimit:login:email#{email}` | String | 登入 Email 限流計數（INCR + TTL） |
 
 ### Multi-Device Support
 
@@ -335,6 +347,9 @@ SMTP_PORT=<SMTP port, default 587>
 SMTP_SENDER_EMAIL=<sender email address>
 SMTP_SENDER_NAME=<sender display name>
 SMTP_SENDER_PASSWORD=<sender password or app password>
+LOGIN_RATE_LIMIT_BY_IP_COUNT=<max login attempts per IP, default 20>
+LOGIN_RATE_LIMIT_BY_EMAIL_COUNT=<max login attempts per email, default 5>
+LOGIN_RATE_LIMIT_TTL_MINUTE=<rate limit window in minutes, default 15>
 ```
 
 ## Important Notes

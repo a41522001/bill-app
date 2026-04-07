@@ -12,8 +12,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "方案項目", "方案項�
 		.editorconfig = .editorconfig
 		.env = .env
 		.gitignore = .gitignore
+		docs\api-endpoints.md = docs\api-endpoints.md
 		CLAUDE.md = CLAUDE.md
 		docker-compose.yml = docker-compose.yml
+		docs\GmailSMTP.md = docs\GmailSMTP.md
+		docs\GoogleAuth.md = docs\GoogleAuth.md
+		docs\ResendAuthCode.md = docs\ResendAuthCode.md
+		docs\response-codes.md = docs\response-codes.md
 	EndProjectSection
 EndProject
 Global

@@ -84,6 +84,16 @@ builder.Services.Configure<AuthCookieOptions>(options =>
 {
     options.SameSite = builder.Environment.IsProduction() ? SameSiteMode.Strict : SameSiteMode.None;
 });
+// Login Rate Limit
+builder.Services.Configure<LoginRateLimitOptions>(options =>
+{
+    options.IpLimit = int.Parse(
+        Environment.GetEnvironmentVariable("LOGIN_RATE_LIMIT_BY_IP_COUNT") ?? "20");
+    options.EmailLimit = int.Parse(
+        Environment.GetEnvironmentVariable("LOGIN_RATE_LIMIT_BY_EMAIL_COUNT") ?? "5");
+    options.TtlMinute = int.Parse(
+        Environment.GetEnvironmentVariable("LOGIN_RATE_LIMIT_TTL_MINUTE") ?? "15");
+});
 // #endregion
 
 // CORS
@@ -134,6 +144,7 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseStaticFiles();
 app.UseHttpsRedirection();
 app.UseCors();
+app.UseMiddleware<LoginRateLimitMiddleware>();
 app.UseMiddleware<AccessTokenMiddleware>();
 app.UseMiddleware<RefreshTokenMiddleware>();
 app.MapControllers();

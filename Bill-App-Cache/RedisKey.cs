@@ -20,4 +20,8 @@ public static class RedisKeys
         => $"passwordReset#{token}";
     public static string EmailPasswordForgetCooldown(Guid userId)
         => $"email:forgetCooldown#{userId}";
+    public static string RateLimitLoginByIp(string ip)
+        => $"rateLimit:login:ip#{ip}";
+    public static string RateLimitLoginByEmail(string email)
+        => $"rateLimit:login:email#{email}";
 }

@@ -26,6 +26,7 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
     private readonly UserVerifyEmailOptions _userVerifyEmailOptions = userVerifyEmailOptions.Value;
     private readonly GoogleAuthOptions _googleAuthOptions = googleAuthOptions.Value;
     private readonly FrontendOptions _frontendOptions = frontendOptions.Value;
+    
     /// <summary>
     /// 重送驗證碼
     /// </summary>

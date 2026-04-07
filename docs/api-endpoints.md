@@ -63,6 +63,7 @@ Local 帳號登入。成功時 Set-Cookie: `accessToken`、`refreshToken`。
 | 400 | `null` | 帳號或密碼錯誤 | code: 1 |
 | 400 | `null` | 該帳號已綁定 Google，請用 Google 登入 | **code: 1002** (`AccountBoundToGoogle`)，前端應引導至 Google 登入 |
 | 400 | `null` | 信箱未驗證 | **code: 1001** (`EmailNotVerified`)，前端應顯示重送驗證信按鈕 |
+| 429 | `null` | 登入嘗試次數過多，請稍後再試 | Rate limit（IP 或 Email 超過限制），前端應顯示稍後再試 |
 
 ---
 
@@ -84,6 +85,7 @@ Google OAuth 登入（ID Token 驗證）。成功時 Set-Cookie: `accessToken`�
 |-------------|------|---------|------|
 | 200 | `"Google 登入成功"` | 成功 | 回應帶 Set-Cookie |
 | 400 | `null` | 該 Email 已使用密碼註冊，請用密碼登入 | **code: 1003** (`AccountBoundToLocal`)，前端應引導至密碼登入 |
+| 429 | `null` | 登入嘗試次數過多，請稍後再試 | Rate limit（IP 超過限制），前端應顯示稍後再試 |
 
 ---
 

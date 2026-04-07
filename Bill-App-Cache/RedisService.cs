@@ -224,4 +224,26 @@ public class RedisService(IConnectionMultiplexer redis) : IRedisService
         // 如果result為Null或Empty，表示沒有冷卻時間，返回false；如果有值，表示正在冷卻中，返回true
         return !result.IsNullOrEmpty;
     }
+    // 設置/設置/遞增 Rate Limit Login By IP 次數
+    public async Task<long> SetRateLimitLoginByIp(string ip, TimeSpan expire)
+    {
+        var key = RedisKeys.RateLimitLoginByIp(ip);
+        var count = await _db.StringIncrementAsync(key);
+        if (count == 1)
+        {
+            await _db.KeyExpireAsync(key, expire);
+        }
+        return count;
+    }
+    // 設置/設置/遞增 Rate Limit Login By Email 次數
+    public async Task<long> SetRateLimitLoginByEmail(string email, TimeSpan expire)
+    {
+        var key = RedisKeys.RateLimitLoginByEmail(email);
+        var count = await _db.StringIncrementAsync(key);
+        if (count == 1)
+        {
+            await _db.KeyExpireAsync(key, expire);
+        }
+        return count;
+    }
 }
