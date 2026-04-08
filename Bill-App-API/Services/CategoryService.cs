@@ -1,5 +1,6 @@
 using Bill_App_API.Contexts;
 using Bill_App_API.Dtos;
+using Bill_App_API.Enums;
 using Bill_App_API.Exceptions;
 using Bill_App_API.Interfaces;
 using Bill_App_API.Models;
@@ -42,7 +43,7 @@ public class CategoryService(BillDbContext dbContext) : ICategoryService
         var result = await dbContext.Categories.Where(item => item.UserId == userId && item.DeletedAt == null).ToListAsync();
         var categories = result.Select(item =>
         {
-            string typeName = item.Type == 0 ? "收入" : "支出";
+            string typeName = item.Type == TransactionTypeEnum.Income ? "收入" : "支出";
             return new CategoryResponse(
                 Id: item.Id,
                 Name: item.Name,

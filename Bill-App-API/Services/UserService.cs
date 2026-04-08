@@ -97,12 +97,12 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
         {
             return;
         }
-        var uesrHash = await redisService.GetRefreshToken(refreshTokenGuid);
-        if (uesrHash is null)
+        var userHash = await redisService.GetRefreshToken(refreshTokenGuid);
+        if (userHash is null)
         {
             return;
         }
-        await redisService.DeleteUserRefreshTokenByMember(uesrHash.UserId, refreshTokenGuid);
+        await redisService.DeleteUserRefreshTokenByMember(userHash.UserId, refreshTokenGuid);
         await redisService.DeleteRefreshToken(refreshTokenGuid);
         return;
     }
@@ -326,7 +326,7 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
         {
             throw new ApiException("僅支援 jpg、png、webp 格式", 400);
         }
-        // 驗證檔案大小（上限 2MB）
+        // 驗證檔案大小（上限 10MB）
         if (file.Length > 10 * 1024 * 1024)
         {
             throw new ApiException("檔案大小不可超過 10MB", 400);
