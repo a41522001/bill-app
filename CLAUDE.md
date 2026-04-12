@@ -15,6 +15,8 @@ Monorepo solution with two projects: `Bill-App-API` (Web API) and `Bill-App-Cach
 - **Email**: MailKit (SMTP via Gmail or other providers)
 - **Image Processing**: SixLabors.ImageSharp (resize + WebP conversion)
 - **Infra**: Docker Compose (postgres + redis)
+- **Testing**: xUnit + Moq + EF Core InMemoryDatabase
+- **CI**: GitHub Actions（push/PR to main → restore → build → test）
 
 ## Build & Run
 
@@ -33,6 +35,9 @@ dotnet ef migrations add <MigrationName> --project Bill-App-API
 
 # Apply migrations
 dotnet ef database update --project Bill-App-API
+
+# Run tests
+dotnet test Bill-App-Tests
 ```
 
 - API runs on `http://localhost:5148` / `https://localhost:7188`
@@ -64,6 +69,13 @@ docs/                # 專案文件與功能規劃
 ├── GoogleAuth.md       # Google OAuth 整合筆記
 ├── GmailSMTP.md        # Gmail SMTP 設定筆記
 └── ResendAuthCode.md   # 重送驗證信功能規劃
+
+Bill-App-Tests/  (namespace: Bill_App_Tests)
+├── Services/
+│   ├── CategoryServiceTest.cs      # CategoryService unit tests (Add, Get, Delete)
+│   ├── TransactionServiceTest.cs   # TransactionService unit tests (Add, Delete, Update, Get, TypeList)
+│   └── UserServiceTest.cs          # UserService unit tests (ResendVerifyEmail, Signup, Logout, Login, VerifyEmail, GetProfile, UploadAvatar, ForgetPassword, ResetPassword, ChangePassword)
+└── Practices/                      # 練習用（不納入正式測試範圍）
 
 Bill-App-Cache/  (namespace: Bill_App_Cache)
 ├── IRedisService.cs    # Redis service interface (Bill_App_Cache.Interface)
@@ -352,12 +364,65 @@ LOGIN_RATE_LIMIT_BY_EMAIL_COUNT=<max login attempts per email, default 5>
 LOGIN_RATE_LIMIT_TTL_MINUTE=<rate limit window in minutes, default 15>
 ```
 
+## Testing Conventions
+
+Unit tests live in `Bill-App-Tests/Services/`，使用 xUnit + Moq + EF Core InMemoryDatabase。
+
+### 測試類別結構
+
+- xUnit 沒有 `[Setup]`，每個 `[Fact]` 都會 new 一個新的 test class instance，所以「setup」就寫在 constructor、「teardown」實作 `IDisposable`
+- `BillDbContext` 與所有 `Mock<T>` 宣告成 `readonly` field，在 constructor 初始化，`_userService` 也在 constructor 組裝好，每個測試直接取用
+- `CreateDbContext()` 用 `Guid.NewGuid().ToString()` 當 InMemory database name，確保每個測試 DB 完全隔離
+- `IOptions<T>` 統一透過 `Options.Create(new XxxOptions { ... })` 產生，沒用到的 Options 也要給空的實例（constructor 要完整）
+
+### Mock 原則
+
+- **純函數不 Mock**（`PasswordHasher`、`BCrypt`）：沒有 I/O、給同樣輸入永遠同樣輸出的東西直接用真的實作。判斷原則：**碰 I/O（DB / 網路 / 檔案 / 寄信）→ Mock；純計算、純轉換 → 用真的**
+- **DbContext 不 Mock**：用 EF Core InMemoryDatabase 取代
+- **Loose mock 預設行為**：Moq 對回傳 `Task` / `Task<T>` 的方法，沒 Setup 也會自動回傳 `Task.CompletedTask` / `default`。**只有需要回傳特定值時才 Setup**（`ReturnsAsync(...)`），否則不要寫多餘的 `Setup`
+- **nullable 回傳值 Setup**：`_redisServiceMock.Setup(r => r.GetX(...)).ReturnsAsync((SomeType?)null)` — cast 到 nullable 才不會重載錯誤
+
+### Assert 原則
+
+- **驗證副作用，不只驗證回傳值**：例外分支要 assert「某些方法**沒被呼叫**」(`Times.Never`)，成功分支要 assert「某些方法**有被呼叫**」(`Times.Once` / `Times.Exactly(n)`)
+- **例外測試檢查 `exception.Message` 和 `exception.Code`**：不只 `Assert.ThrowsAsync<ApiException>`，還要比對訊息；若 service 有帶 `ResponseCodeEnum`（如 `AccountBoundToGoogle`、`EmailNotVerified`），也要 `Assert.Equal(ResponseCodeEnum.Xxx, exception.Code)` 驗證
+- **Verify 參數盡量用明確值，少用 `It.IsAny<T>()`**：明確值能抓到「用錯參數」的 bug（例如把 `DeleteRefreshToken(token)` 改成 `DeleteRefreshToken(Guid.NewGuid())` 時會被抓出來）
+- **密碼驗證用 `PasswordHasher.VerifyPassword(plain, hash)` 比對**，比 `Assert.NotEqual(originalPassword, hashedPassword)` 更精確
+- **EF InMemoryDatabase 讀回驗證時加 `AsNoTracking()`**：避免 change tracker 把記憶體中已被修改但還沒 `SaveChangesAsync` 的 entity 當成 DB 狀態，造成假 pass
+
+### 測試資料原則
+
+- **塞 User 進 DB 時 `Password` 一律用 `PasswordHasher.HashPassword(...)`**：即使當下測試分支不會走到 `VerifyPassword`，也要養成習慣，避免未來邏輯變動時踩到 `BCrypt SaltParseException: Invalid salt version` 的定時炸彈
+- **non-null 欄位明確給值**：`AuthProvider`、`IsEmailVerified` 等即使有 enum default（0 = Local）也要明確寫出來，讓測試意圖清楚
+
+### 命名規範
+
+- 格式：`MethodName_Scenario` 或 `MethodName_ScenarioExpectedResult`
+- 範例：`Signup_EmailAlreadyExist`、`Login_AccountBoundGoogle`、`ChangePassword_Success`、`Logout_RefreshTokenTransformError`、`ResendVerifyEmail_UserStatusNotResend`
+
+### 參數化測試
+
+- 多個簡單值應該走同一條路徑時用 `[Theory] + [InlineData]`，xUnit 會報成多個獨立 test case
+- 範例：`Logout_RefreshTokenTransformError` 用 `[InlineData("")] [InlineData("not-a-guid")] [InlineData("12345")]` 一次測三種非法 GUID 字串
+- 需要傳入複雜物件（如 `User` entity）時改用 `[Theory] + [MemberData]`，搭配 `public static IEnumerable<object[]>` 屬性提供測試資料
+- 範例：`ResendVerifyEmail_UserStatusNotResend` 用 `[MemberData(nameof(UserData))]` 傳入不同 AuthProvider / IsEmailVerified 組合的 User
+
+### IFormFile Mock
+
+- 使用 `FormFile(Stream.Null, 0, length, null, fileName)` 建構，搭配 `Headers = new HeaderDictionary()` 和 `ContentType = "image/jpeg"` 設定
+- 測試格式驗證時傳入不合法的 ContentType（如 `image/gif`）；測試大小驗證時調整 `length` 參數
+
+### Service 內部方法依賴
+
+- Service 自身的 public 方法（如 `UserService.RotateRefreshToken`）**不 mock**，讓它跟著執行，mock 的是它內部呼叫的介面（`IRedisService`、`ITokenService`）
+- 需要 Setup 內部方法會呼叫的底層服務（如 `_tokenServiceMock.Setup(t => t.GenerateRefreshToken()).Returns(mockGuid)`），讓整條呼叫鏈能跑完
+
 ## Important Notes
 
 - **更新 CLAUDE.md 後，務必檢查 `docs/` 資料夾**：確認 `docs/api-endpoints.md` 是否需要新增/修改對應的 API 端點文件，以及 `docs/response-codes.md` 是否需要補上新的 ResponseCode。若有新功能涉及獨立流程（如 OAuth、Email），評估是否需要在 `docs/` 下新增說明文件。
 - **Ignore `bin/` and `obj/` folders** when scanning or searching the codebase
 - `.env` files are gitignored - never commit secrets
-- `.github/workflows/` exists but has no CI/CD pipelines yet
+- **CI pipeline**: `.github/workflows/ci.yml`，push/PR to main 時自動執行 `dotnet restore` → `dotnet build` → `dotnet test`
 - Controllers 使用 `HttpContext.GetUserId()` extension 取得已驗證的 userId（不使用 `[Authorize]` attribute）
 - Middleware 使用 `context.SetUserId()` / `context.HasUserId()` 操作 userId
 - Cookie 設定統一透過 `AuthCookieOptions.Create()` 產生（HttpOnly, Secure, SameSite 依環境切換）
