@@ -8,7 +8,11 @@ using Bill_App_Cache.Services;
 using DotNetEnv;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
-Env.Load("../.env");
+var envPath = Path.Combine(Directory.GetCurrentDirectory(), "../.env");
+if (File.Exists(envPath))
+{
+    Env.Load(envPath);
+}
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen();
@@ -16,7 +20,9 @@ builder.Services.AddSwaggerGen();
 var dbUser = Environment.GetEnvironmentVariable("DB_USER");
 var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
 var dbName = Environment.GetEnvironmentVariable("DB_NAME");
-var connectionString = $"Host=localhost;Port=5432;Database={dbName};Username={dbUser};Password={dbPassword}";
+var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "localhost";
+var dbPort = Environment.GetEnvironmentVariable("DB_PORT") ?? "5432";
+var connectionString = $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPassword}";
 builder.Services.AddDbContext<BillDbContext>(options =>
     options.UseNpgsql(connectionString));
 // #region Options
@@ -120,8 +126,9 @@ builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
 //builder.Services.AddScoped<IFileStorageService, S3FileStorageService>();
 
 // Redis
+var redisConnection = Environment.GetEnvironmentVariable("REDIS_CONNECTION") ?? "localhost:6379";
 builder.Services.AddSingleton<IConnectionMultiplexer>(
-    ConnectionMultiplexer.Connect("localhost:6379"));
+    ConnectionMultiplexer.Connect(redisConnection));
 builder.Services.AddScoped<IRedisService, RedisService>();
 
 // Filter
@@ -131,21 +138,28 @@ builder.Services.AddControllers(options =>
     options.Filters.Add<Bill_App_API.Filters.ResultWrapFilter>();
 });
 var app = builder.Build();
-
+// 自動執行 EF Core migration（Production 環境）
+if (!app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<BillDbContext>();
+    db.Database.Migrate();
+}
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.UseHttpsRedirection();
 }
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseStaticFiles();
-app.UseHttpsRedirection();
 app.UseCors();
 app.UseMiddleware<LoginRateLimitMiddleware>();
 app.UseMiddleware<AccessTokenMiddleware>();
 app.UseMiddleware<RefreshTokenMiddleware>();
+app.MapGet("/health", () => Results.Ok("healthy"));
 app.MapControllers();
 app.Run();

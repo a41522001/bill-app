@@ -2,11 +2,11 @@
 [Bb]in/
 [Oo]bj/
 
-## [環境變數] 
+## [環境變數]
 .env
-.env.*
+.env.production
 
-## [組態檔案] 
+## [組態檔案]
 appsettings.Development.json
 appsettings.Local.json
 

@@ -52,7 +52,10 @@ public class UserServiceTest
             Options.Create(new FrontendOptions { Url = "http://localhost:5173" })
         );
     }
-    // ResendVerifyEmail
+    ///<summary>
+    ////// 測試 ResendVerifyEmail 功能的各種情況，包括：
+    ///</summary>
+    #region 
     public static IEnumerable<object[]> UserData =>
     [
         [new User { Id = Guid.NewGuid(), Name = "Test1", Email = "test1@test1.com", AuthProvider = AuthProviderEnum.Google, IsEmailVerified = true}],
@@ -114,6 +117,7 @@ public class UserServiceTest
         _redisServiceMock.Verify(r => r.SetEmailVerifyTokenAsync(It.IsAny<Guid>(), user.Id, It.IsAny<TimeSpan>()), Times.Once);
         _emailServiceMock.Verify(e => e.SendAsync(user.Email, It.IsAny<string>(), It.IsAny<string>()), Times.Once);
     }
+    #endregion
     // Signup
     [Fact]
     public async Task Signup_EmailAlreadyExist()
@@ -681,5 +685,4 @@ public class UserServiceTest
         Assert.NotNull(actual?.Password);
         Assert.True(PasswordHasher.VerifyPassword(req.NewPassword, actual.Password));
     }
-
 }

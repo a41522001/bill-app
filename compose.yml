@@ -1,9 +1,14 @@
+name: Bill-App
 services:
   # PostgreSQL 資料庫服務
   db:
     image: postgres:18.1
-    container_name: bill-app-postgres
-    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     env_file: './.env'
     environment:
       POSTGRES_USER: ${DB_USER}
@@ -18,8 +23,12 @@ services:
 
   redis:
     image: redis:7.4
-    container_name: bill-app-redis
-    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
     ports:
       - "6379:6379"
     volumes:
