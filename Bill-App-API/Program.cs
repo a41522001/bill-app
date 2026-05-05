@@ -1,12 +1,15 @@
+using Amazon.S3;
+using Amazon.S3.Model;
 using Bill_App_API.Contexts;
 using Bill_App_API.Interfaces;
+using Bill_App_API.Middlewares;
 using Bill_App_API.Options;
 using Bill_App_API.Services;
-using Bill_App_API.Middlewares;
 using Bill_App_Cache.Interface;
 using Bill_App_Cache.Services;
 using DotNetEnv;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 var envPath = Path.Combine(Directory.GetCurrentDirectory(), "../.env");
 if (File.Exists(envPath))
@@ -121,9 +124,40 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
-builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
-// Deploy換成S3
-//builder.Services.AddScoped<IFileStorageService, S3FileStorageService>();
+
+// Avatar儲存策略 develop = local,  production = S3
+var storageProvider = Environment.GetEnvironmentVariable("STORAGE_PROVIDER") ?? "Local";
+if (storageProvider == "S3")
+{
+    // AWS
+    builder.Services.Configure<AwsOptions>(options =>
+    {
+        options.AccessKeyId = Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID") ?? "";
+        options.SecretAccessKey = Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY") ?? "";
+        options.Region = Environment.GetEnvironmentVariable("AWS_REGION") ?? "";
+    });
+    // S3
+    builder.Services.Configure<S3Options>(options =>
+    {
+        options.BucketName = Environment.GetEnvironmentVariable("S3_BUCKET_NAME") ?? "";
+        options.AvatarFolder = Environment.GetEnvironmentVariable("S3_BUCKET_AVATAR_FOLDER") ?? "";
+        options.CloudFrontUrl = Environment.GetEnvironmentVariable("CLOUD_FRONT_URL") ?? "";
+    });
+    builder.Services.AddScoped<IFileStorageService, S3FileStorageService>();
+    builder.Services.AddSingleton<IAmazonS3>(sp =>
+    {
+        var opts = sp.GetRequiredService<IOptions<AwsOptions>>().Value;
+        return new AmazonS3Client(
+            opts.AccessKeyId,
+            opts.SecretAccessKey,
+            Amazon.RegionEndpoint.GetBySystemName(opts.Region)
+        );
+    });
+}
+else
+{
+    builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
+}
 
 // Redis
 var redisConnection = Environment.GetEnvironmentVariable("REDIS_CONNECTION") ?? "localhost:6379";
@@ -137,7 +171,9 @@ builder.Services.AddControllers(options =>
     options.Filters.Add<Bill_App_API.Filters.LogActionFilter>();
     options.Filters.Add<Bill_App_API.Filters.ResultWrapFilter>();
 });
+
 var app = builder.Build();
+
 // 自動執行 EF Core migration（Production 環境）
 if (!app.Environment.IsDevelopment())
 {
