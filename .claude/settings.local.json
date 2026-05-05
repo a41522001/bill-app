@@ -1,8 +1,6 @@
 {
   "permissions": {
     "allow": [
-      "Read(//d/Personal/English-learning/frontend/**)",
-      "Read(//d/Personal/English-learning/backend/**)",
       "mcp__notion__notion-search",
       "mcp__notion__notion-fetch",
       "mcp__notion__notion-create-pages",

@@ -376,6 +376,8 @@ API 容器會等 DB 和 Redis 的 healthcheck 都通過才啟動，避免 API �
 
 頭像圖片存在 Docker named volume 裡，即使 API 容器重建（deploy 新版本），圖片都還在。
 
+> **使用 S3 + CloudFront 時可省略**：若 `STORAGE_PROVIDER=S3`，圖片不再寫入容器本機磁碟，可移除 `avatars_vol`、`api.volumes` 中的 `avatars_vol:/app/wwwroot/avatars`、以及 Dockerfile 裡的 `RUN mkdir -p /app/wwwroot/avatars`。改在 `api.environment` 加上 `STORAGE_PROVIDER`、`AWS_*`、`S3_*`、`CLOUD_FRONT_URL` 等變數即可。詳見 `docs/S3Storage.md`。
+
 ### 別忘了修復現有的 docker-compose.yml
 
 現有的 postgres volume 掛載路徑有誤：

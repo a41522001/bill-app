@@ -123,13 +123,15 @@ Google OAuth 登入（ID Token 驗證）。成功時 Set-Cookie: `accessToken`�
   "email": "string",
   "authProvider": 0,
   "isEmailVerified": true,
-  "avatarOriginalUrl": "avatars/{guid}_original.webp | null",
-  "avatarThumbUrl": "avatars/{guid}_thumb.webp | null"
+  "avatarOriginalUrl": "string | null",
+  "avatarThumbUrl": "string | null"
 }
 ```
 
 - `authProvider`: `0` = Local, `1` = Google
-- `avatarOriginalUrl` / `avatarThumbUrl`: 未上傳頭像時為 `null`，前端需組合 base URL 取得完整圖片路徑
+- `avatarOriginalUrl` / `avatarThumbUrl`: 未上傳頭像時為 `null`。**格式依後端 `STORAGE_PROVIDER` 而異**：
+  - `STORAGE_PROVIDER=Local`：相對路徑，例如 `avatars/{guid}_original.webp`，前端需自行拼接 API base URL
+  - `STORAGE_PROVIDER=S3`：CloudFront 完整 URL，例如 `https://d1234abcd.cloudfront.net/avatars/{guid}_original.webp`，前端可直接 `<img src>` 使用
 
 ---
 
@@ -143,6 +145,7 @@ Google OAuth 登入（ID Token 驗證）。成功時 Set-Cookie: `accessToken`�
 - 格式：jpg / png / webp
 - 大小：上限 5MB
 - 後端統一轉為 WebP，產生 original (400x400) + thumbnail (100x100) 兩張
+- 儲存位置由後端 `STORAGE_PROVIDER` 決定（`Local` → `wwwroot/avatars/`；`S3` → AWS S3 + CloudFront），前端只需處理回傳的 URL 字串
 
 **Response:**
 

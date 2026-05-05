@@ -45,6 +45,7 @@
 | Auth | JWT + GUID Refresh Token + BCrypt + Google.Apis.Auth |
 | Email | MailKit (SMTP) |
 | Image | SixLabors.ImageSharp |
+| File Storage | 本機磁碟 / AWS S3 + CloudFront（透過 `IFileStorageService` 切換） |
 | Testing | xUnit + Moq + EF Core InMemory |
 | Infra | Docker Compose |
 | CI | GitHub Actions |
@@ -106,7 +107,7 @@ Bill-App.sln
 │   └── RedisKey.cs
 ├── Bill-App-Tests/       # xUnit + Moq + EF InMemory
 │   └── Services/
-├── docs/                 # API / ResponseCode / OAuth / SMTP 文件
+├── docs/                 # API / ResponseCode / OAuth / SMTP / S3 / Docker 部署 文件
 ├── docker-compose.yml    # Postgres + Redis
 └── .github/workflows/    # CI pipeline
 ```
@@ -188,7 +189,18 @@ FRONT_END_URL=http://localhost:5173
 LOGIN_RATE_LIMIT_BY_IP_COUNT=20
 LOGIN_RATE_LIMIT_BY_EMAIL_COUNT=5
 LOGIN_RATE_LIMIT_TTL_MINUTE=15
+
+# 檔案儲存（預設 Local，切 S3 才需要下面的 AWS / S3 / CloudFront 變數）
+STORAGE_PROVIDER=Local
+# AWS_ACCESS_KEY_ID=
+# AWS_SECRET_ACCESS_KEY=
+# AWS_REGION=ap-northeast-1
+# S3_BUCKET_NAME=
+# S3_BUCKET_AVATAR_FOLDER=avatars
+# CLOUD_FRONT_URL=
 ```
+
+> S3 模式設定詳情見 [`docs/S3Storage.md`](./docs/S3Storage.md)。
 
 ---
 

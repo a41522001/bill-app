@@ -14,6 +14,7 @@ Monorepo solution with two projects: `Bill-App-API` (Web API) and `Bill-App-Cach
 - **Google Auth**: Google.Apis.Auth (ID Token verification)
 - **Email**: MailKit (SMTP via Gmail or other providers)
 - **Image Processing**: SixLabors.ImageSharp (resize + WebP conversion)
+- **File Storage**: 抽象介面 `IFileStorageService`，雙實作可切換 — `LocalFileStorageService`（存 `wwwroot/avatars/`）/ `S3FileStorageService`（AWS S3 + CloudFront CDN，使用 `AWSSDK.S3`）
 - **Infra**: Docker Compose (postgres + redis)
 - **Testing**: xUnit + Moq + EF Core InMemoryDatabase
 - **CI**: GitHub Actions（push/PR to main → restore → build → test）
@@ -48,12 +49,12 @@ dotnet test Bill-App-Tests
 ```
 Bill-App-API/
 ├── Controllers/    # HTTP endpoints (UserController, CategoryController, TransactionController, StatisticsController, RedisController)
-├── Services/       # Business logic (UserService, TokenService, CategoryService, EmailService, TransactionService, StatisticsService, LocalFileStorageService)
+├── Services/       # Business logic (UserService, TokenService, CategoryService, EmailService, TransactionService, StatisticsService, LocalFileStorageService, S3FileStorageService)
 │   └── Interfaces/ # Service contracts (IUserService, ITokenService, ICategoryService, IEmailService, ITransactionService, IStatisticsService, IFileStorageService)
 ├── Middlewares/     # ExceptionHandlingMiddleware, LoginRateLimitMiddleware, AccessTokenMiddleware, RefreshTokenMiddleware, TokenMiddlewareWhiteList
 ├── Filters/        # LogActionFilter, ResultWrapFilter (GlobalExceptionFilter 已移至 ExceptionHandlingMiddleware)
 ├── Exceptions/     # ApiException (custom exception with StatusCode)
-├── Options/        # JwtOptions, MaxDeviceOptions, RefreshTokenOptions, UserCacheOptions, UserVerifyEmailOptions, AppOptions, GoogleAuthOptions, SmtpOptions, FrontendOptions, AuthCookieOptions, LoginRateLimitOptions
+├── Options/        # JwtOptions, MaxDeviceOptions, RefreshTokenOptions, UserCacheOptions, UserVerifyEmailOptions, AppOptions, GoogleAuthOptions, SmtpOptions, FrontendOptions, AuthCookieOptions, LoginRateLimitOptions, AwsOptions, S3Options
 ├── Models/         # EF Core entities (User, Category, Transaction, Avatar)
 ├── Dtos/           # Request/Response records + ResponseWrap<T>
 ├── Enums/          # TransactionTypeEnum, AuthProviderEnum (Local=0, Google=1), ResponseCodeEnum
@@ -68,7 +69,9 @@ docs/                # 專案文件與功能規劃
 ├── response-codes.md   # ResponseCodeEnum 完整定義
 ├── GoogleAuth.md       # Google OAuth 整合筆記
 ├── GmailSMTP.md        # Gmail SMTP 設定筆記
-└── ResendAuthCode.md   # 重送驗證信功能規劃
+├── ResendAuthCode.md   # 重送驗證信功能規劃
+├── docker-cd-guide.md  # Docker 生產環境部署指南
+└── S3Storage.md        # AWS S3 + CloudFront 圖片儲存設定筆記
 
 Bill-App-Tests/  (namespace: Bill_App_Tests)
 ├── Services/
@@ -96,7 +99,7 @@ Bill-App-Cache/  (namespace: Bill_App_Cache)
 - **Async pattern**: All I/O operations must be async (`Task<T>`)
 - **EF Core**: Code-first approach with explicit migrations
 - **Nullable reference types**: Enabled project-wide
-- **Options pattern**: Strongly-typed config via `IOptions<T>` (JwtOptions, MaxDeviceOptions, RefreshTokenOptions, UserCacheOptions, UserVerifyEmailOptions, AppOptions, GoogleAuthOptions, SmtpOptions, FrontendOptions, AuthCookieOptions, LoginRateLimitOptions)
+- **Options pattern**: Strongly-typed config via `IOptions<T>` (JwtOptions, MaxDeviceOptions, RefreshTokenOptions, UserCacheOptions, UserVerifyEmailOptions, AppOptions, GoogleAuthOptions, SmtpOptions, FrontendOptions, AuthCookieOptions, LoginRateLimitOptions, AwsOptions, S3Options)
 - **Error handling**: `ApiException` for business errors (custom StatusCode + ResponseCode), `ExceptionHandlingMiddleware` 統一處理所有例外（Middleware + Controller），401 時自動清除 cookies
 - **Token Middleware Whitelist**: `TokenMiddlewareWhiteList` 靜態類別集中管理白名單路由，提供 `IsWhiteListed(PathString)` 方法
 - **CORS**: 允許前端 origin（`FRONT_END_URL` 環境變數），`AllowCredentials` 支援 cookie 跨域
@@ -132,6 +135,13 @@ Bill-App-Cache/  (namespace: Bill_App_Cache)
 | `LoginRateLimitOptions` | `LOGIN_RATE_LIMIT_BY_IP_COUNT` | 20 | 同一 IP 在時間窗口內最大登入嘗試次數 |
 | `LoginRateLimitOptions` | `LOGIN_RATE_LIMIT_BY_EMAIL_COUNT` | 5 | 同一 Email 在時間窗口內最大登入嘗試次數 |
 | `LoginRateLimitOptions` | `LOGIN_RATE_LIMIT_TTL_MINUTE` | 15 | Rate limit 時間窗口（分鐘） |
+| _(無類別)_ | `STORAGE_PROVIDER` | `Local` | 檔案儲存供應商：`Local` / `S3`（決定 DI 註冊哪一個 `IFileStorageService` 實作） |
+| `AwsOptions` | `AWS_ACCESS_KEY_ID` | - | IAM user access key（僅 S3 模式需要） |
+| `AwsOptions` | `AWS_SECRET_ACCESS_KEY` | - | IAM user secret key（僅 S3 模式需要） |
+| `AwsOptions` | `AWS_REGION` | - | S3 bucket 所在 region（如 `ap-northeast-1`） |
+| `S3Options` | `S3_BUCKET_NAME` | - | S3 bucket 名稱（如 `bill-app-avatars-dev`） |
+| `S3Options` | `S3_BUCKET_AVATAR_FOLDER` | - | bucket 內 avatar 物件的 key 前綴（如 `avatars`） |
+| `S3Options` | `CLOUD_FRONT_URL` | - | CloudFront distribution URL（前端讀取圖片用） |
 
 **Middleware 注入規則**：`IOptions<T>` 是 Singleton，放 constructor；Scoped 服務（ITokenService、IRedisService、IUserService）放 `InvokeAsync` 參數。
 
@@ -299,12 +309,25 @@ Whitelist 使用 `StartsWithSegments` 比對，支援動態路徑（如 `/api/us
 - `POST /api/user/avatar` (requires auth, `multipart/form-data`)
 - 上傳頭像圖片，支援 jpg / png / webp，上限 5MB
 - 後端透過 ImageSharp 統一轉 WebP，產生兩張圖：
-  - Original: 400x400 → `avatars/{guid}_original.webp`
-  - Thumbnail: 100x100 → `avatars/{guid}_thumb.webp`
-- 儲存架構透過 `IFileStorageService` 介面抽象，目前實作為 `LocalFileStorageService`（存到 `wwwroot/avatars/`），未來可切換為 S3
+  - Original: 400x400 → `{AvatarFolder}/{guid}_original.webp`
+  - Thumbnail: 100x100 → `{AvatarFolder}/{guid}_thumb.webp`
+- 儲存架構透過 `IFileStorageService` 介面抽象，由 `STORAGE_PROVIDER` 環境變數決定實作（見下方 Storage Provider 章節）
 - Avatar 為獨立 table，與 User 一對一關係
 - 換頭像時刪除舊檔案 + 舊 DB record，再新增新的
-- DB 存相對路徑，前端透過環境變數組合完整 URL
+- DB 儲存欄位 `OriginalUrl` / `ThumbUrl` 的格式依 `STORAGE_PROVIDER` 而異：
+  - `Local`：相對路徑（如 `avatars/{guid}_original.webp`），前端透過環境變數組合完整 URL
+  - `S3`：完整 CloudFront URL（如 `https://d1234abcd.cloudfront.net/avatars/{guid}_original.webp`），前端可直接 `<img src>` 使用
+
+### Storage Provider 切換
+
+- 由 `STORAGE_PROVIDER` 環境變數控制（`Local` / `S3`，預設 `Local`）
+- `Program.cs` 讀取後決定 DI 註冊哪一個實作；`S3` 模式才會註冊 `AwsOptions` / `S3Options` / `IAmazonS3`，避免 Local 模式啟動時因缺少 AWS 環境變數而炸掉
+- `IAmazonS3` 註冊為 **Singleton**（thread-safe + 內部 connection pool，跟 `IConnectionMultiplexer` 同一個道理），透過 lambda 從 `AwsOptions` 顯式取憑證建構 `AmazonS3Client`，不依賴 SDK 預設環境變數讀取
+- `LocalFileStorageService` vs `S3FileStorageService` 差異：
+  - Local：寫入本機磁碟 `wwwroot/avatars/`，依賴 `app.UseStaticFiles()` 由 ASP.NET 直接 serve
+  - S3：用 `MemoryStream` 把 ImageSharp 輸出寫入記憶體（不落地），再用 `PutObjectRequest.InputStream` 上傳到 S3；S3 bucket 設為 private，由 CloudFront 透過 OAC（Origin Access Control）讀取
+  - 兩個實作各自寫一次 ImageSharp 縮圖（Original 400×400 與 Thumb 100×100），S3 版用兩個獨立 `MemoryStream`（避免 stream 共用 + 殘留 byte 的雷）
+- AWS 設定步驟（IAM user 權限、S3 bucket、CloudFront OAC）見 `docs/S3Storage.md`
 
 ## Category API
 
@@ -362,6 +385,15 @@ SMTP_SENDER_PASSWORD=<sender password or app password>
 LOGIN_RATE_LIMIT_BY_IP_COUNT=<max login attempts per IP, default 20>
 LOGIN_RATE_LIMIT_BY_EMAIL_COUNT=<max login attempts per email, default 5>
 LOGIN_RATE_LIMIT_TTL_MINUTE=<rate limit window in minutes, default 15>
+
+# File Storage（STORAGE_PROVIDER=S3 時以下 AWS / S3 變數為必填）
+STORAGE_PROVIDER=<Local | S3, default Local>
+AWS_ACCESS_KEY_ID=<IAM user access key>
+AWS_SECRET_ACCESS_KEY=<IAM user secret key>
+AWS_REGION=<S3 bucket region, e.g. ap-northeast-1>
+S3_BUCKET_NAME=<S3 bucket name>
+S3_BUCKET_AVATAR_FOLDER=<key prefix for avatar objects, e.g. avatars>
+CLOUD_FRONT_URL=<CloudFront distribution URL, no trailing slash>
 ```
 
 ## Testing Conventions
