@@ -129,9 +129,9 @@ Google OAuth 登入（ID Token 驗證）。成功時 Set-Cookie: `accessToken`�
 ```
 
 - `authProvider`: `0` = Local, `1` = Google
-- `avatarOriginalUrl` / `avatarThumbUrl`: 未上傳頭像時為 `null`。**格式依後端 `STORAGE_PROVIDER` 而異**：
-  - `STORAGE_PROVIDER=Local`：相對路徑，例如 `avatars/{guid}_original.webp`，前端需自行拼接 API base URL
-  - `STORAGE_PROVIDER=S3`：CloudFront 完整 URL，例如 `https://d1234abcd.cloudfront.net/avatars/{guid}_original.webp`，前端可直接 `<img src>` 使用
+- `avatarOriginalUrl` / `avatarThumbUrl`: 未上傳頭像時為 `null`。**格式依環境而異**：
+  - **Dev 環境**（`STORAGE_PROVIDER=Local`）：相對路徑 `/avatars/{檔名}`，例如 `/avatars/{guid}_original.webp`，前端需自行拼接 API base URL
+  - **Prod 環境**（`STORAGE_PROVIDER=S3`）：CloudFront 完整 URL `{CLOUD_FRONT_URL}/avatars/{檔名}`，例如 `https://d1234abcd.cloudfront.net/avatars/{guid}_original.webp`，前端可直接 `<img src>` 使用
 
 ---
 
