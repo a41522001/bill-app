@@ -110,7 +110,7 @@ public async Task<UserLoginResponse> GoogleLogin(string idToken)
 
     // 4. 產生 Token（複用現有邏輯）
     var userSub = new UserSubHash(UserId: user.Id, Email: user.Email, Name: user.Name);
-    var expireAt = DateTime.UtcNow.AddDays(_refreshTokenOptions.DurationInDay);
+    var expireAt = DateTime.UtcNow.AddDays(_refreshTokenOptions.DurationInDays);
     var accessToken = tokenService.GenerateAccessToken(user.Name, user.Email, user.Sub);
     await redisService.SetUserSubAsync(user.Sub, userSub, TimeSpan.FromHours(_userCacheOptions.TtlInHours));
     var refreshToken = await RotateRefreshToken(user.Id, expireAt);
@@ -149,7 +149,7 @@ public async Task<ActionResult> GoogleLogin([FromBody] GoogleLoginRequest req)
         HttpOnly = true,
         Secure = true,
         SameSite = SameSiteMode.None,
-        Expires = DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDay)
+        Expires = DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDays)
     });
 
     return Ok("Google 登入成功");

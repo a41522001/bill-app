@@ -56,7 +56,7 @@ public class RefreshTokenMiddleware(RequestDelegate next, IOptions<JwtOptions> j
         var name = userinfo.Name;
         var email = userinfo.Email;
         Guid sub = userinfo.Sub;
-        var expireAt = DateTime.UtcNow.AddDays(_refreshTokenOptions.DurationInDay);
+        var expireAt = DateTime.UtcNow.AddDays(_refreshTokenOptions.DurationInDays);
         // 刪除在Zset內的舊Refresh Token
         await redisService.DeleteUserRefreshTokenByMember(userinfo.UserId, refreshToken);
         // 創建新的Access Token
@@ -86,7 +86,7 @@ public class RefreshTokenMiddleware(RequestDelegate next, IOptions<JwtOptions> j
         context.Response.Cookies.Append("accessToken", newAccessToken,
             _authCookieOptions.Create(DateTimeOffset.UtcNow.AddMinutes(_jwtOptions.DurationInMinutes)));
         context.Response.Cookies.Append("refreshToken", newRefreshToken.ToString(),
-            _authCookieOptions.Create(DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDay)));
+            _authCookieOptions.Create(DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDays)));
         await next(context);
     }
 }

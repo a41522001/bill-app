@@ -6,7 +6,11 @@
       "mcp__notion__notion-create-pages",
       "Bash(xargs wc:*)",
       "Bash(dotnet build:*)",
-      "mcp__notion__notion-update-page"
+      "mcp__notion__notion-update-page",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\a4152\\\\Desktop\\\\bill-app\" -Force)",
+      "Bash(Select-Object -Property Name, FullName, PSIsContainer)",
+      "Bash(Format-Table)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\a4152\\\\Desktop\\\\bill-app\" -Force | Select-Object -Property Name, @{N=\"IsDir\"; E={$_.PSIsContainer}} | Format-Table)"
     ]
   }
 }

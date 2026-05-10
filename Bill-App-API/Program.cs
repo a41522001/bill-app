@@ -30,39 +30,38 @@ builder.Services.AddDbContext<BillDbContext>(options =>
     options.UseNpgsql(connectionString));
 // #region Options
 // JWT Options
+var jwtSetting = builder.Configuration.GetSection("JWT");
 builder.Services.Configure<JwtOptions>(options =>
 {
-    options.Key = Environment.GetEnvironmentVariable("JWT__KEY")!;
-    options.Issuer = Environment.GetEnvironmentVariable("JWT__ISSUER")!;
-    options.Audience = Environment.GetEnvironmentVariable("JWT__AUDIENCE")!;
-    options.DurationInMinutes = int.Parse(
-        Environment.GetEnvironmentVariable("JWT__DURATION_IN_MINUTES") ?? "15");
-});
-// Device Options
-builder.Services.Configure<MaxDeviceOptions>(options =>
-{
-    options.MaxDevice = int.Parse(
-        Environment.GetEnvironmentVariable("MAX_DEVICE") ?? "5");
+    options.Key = Environment.GetEnvironmentVariable("JWT_KEY")!;
+    options.Issuer = jwtSetting.GetValue<string>("Issuer")!;
+    options.Audience = jwtSetting.GetValue<string>("Audience")!;
+    options.DurationInMinutes = jwtSetting.GetValue<int>("DurationInMinutes");
 });
 // Refresh Token Options
+var refreshTokenSetting = builder.Configuration.GetSection("RefreshToken");
 builder.Services.Configure<RefreshTokenOptions>(options =>
 {
-    options.DurationInDay = int.Parse(
-        Environment.GetEnvironmentVariable("REFRESH_TOKEN__DURATION_IN_DAY") ?? "7");
-    options.OldTokenGraceInSeconds = int.Parse(
-        Environment.GetEnvironmentVariable("REFRESH_TOKEN__OLD_TOKEN_GRACE_IN_SECONDS") ?? "15");
+    options.DurationInDays = refreshTokenSetting.GetValue<int>("DurationInDays");
+    options.OldTokenGraceInSeconds = refreshTokenSetting.GetValue<int>("OldTokenGraceInSeconds");
+});
+// Device Options
+var deviceSetting = builder.Configuration.GetSection("Device");
+builder.Services.Configure<MaxDeviceOptions>(options =>
+{
+    options.MaxDevice = deviceSetting.GetValue<int>("MaxDevice");
 });
 // User Cache Options
+var userCacheSetting = builder.Configuration.GetSection("UserCache");
 builder.Services.Configure<UserCacheOptions>(options =>
 {
-    options.TtlInHours = int.Parse(
-        Environment.GetEnvironmentVariable("USER_CACHE__TTL_IN_HOURS") ?? "24");
+    options.TtlInHours = userCacheSetting.GetValue<int>("TtlInHours");
 });
 // User Verify Email Options
+var userVerifyEmailSetting = builder.Configuration.GetSection("UserVerifyEmailCache");
 builder.Services.Configure<UserVerifyEmailOptions>(options =>
 {
-    options.TtlInHours = int.Parse(
-        Environment.GetEnvironmentVariable("USER_VERIFY_CACHE__TTL_IN_HOURS") ?? "1");
+    options.TtlInHours = userVerifyEmailSetting.GetValue<int>("TtlInHours");
 });
 // App Options
 builder.Services.Configure<AppOptions>(options =>
@@ -80,28 +79,29 @@ builder.Services.Configure<GoogleAuthOptions>(options =>
     options.ClientId = Environment.GetEnvironmentVariable("GOOGLE_AUTH_CLIENT_ID") ?? "";
 });
 // SMTP Options
+var smtpSetting = builder.Configuration.GetSection("SMTP");
 builder.Services.Configure<SmtpOptions>(options =>
 {
-    options.Host = Environment.GetEnvironmentVariable("SMTP_HOST") ?? "";
-    options.Port = int.Parse(Environment.GetEnvironmentVariable("SMTP_PORT") ?? "587");
+    options.Host = smtpSetting.GetValue<string>("Host")!;
+    options.Port = smtpSetting.GetValue<int>("Port");
+    options.SenderName = smtpSetting.GetValue<string>("SenderName")!;
     options.SenderEmail = Environment.GetEnvironmentVariable("SMTP_SENDER_EMAIL") ?? "";
-    options.SenderName = Environment.GetEnvironmentVariable("SMTP_SENDER_NAME") ?? "";
     options.Password = Environment.GetEnvironmentVariable("SMTP_SENDER_PASSWORD") ?? "";
 });
 // Cookie Options
 builder.Services.Configure<AuthCookieOptions>(options =>
 {
-    options.SameSite = builder.Environment.IsProduction() ? SameSiteMode.Strict : SameSiteMode.None;
+    options.SameSite = builder.Environment.IsDevelopment()
+        ? SameSiteMode.None
+        : SameSiteMode.Strict;
 });
 // Login Rate Limit
+var loginRateLimit = builder.Configuration.GetSection("LoginRateLimit");
 builder.Services.Configure<LoginRateLimitOptions>(options =>
 {
-    options.IpLimit = int.Parse(
-        Environment.GetEnvironmentVariable("LOGIN_RATE_LIMIT_BY_IP_COUNT") ?? "20");
-    options.EmailLimit = int.Parse(
-        Environment.GetEnvironmentVariable("LOGIN_RATE_LIMIT_BY_EMAIL_COUNT") ?? "5");
-    options.TtlMinute = int.Parse(
-        Environment.GetEnvironmentVariable("LOGIN_RATE_LIMIT_TTL_MINUTE") ?? "15");
+    options.IpLimit = loginRateLimit.GetValue<int>("IP");
+    options.EmailLimit = loginRateLimit.GetValue<int>("Email");
+    options.TtlMinute = loginRateLimit.GetValue<int>("TtlMinutes");
 });
 // #endregion
 
@@ -110,7 +110,7 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins(Environment.GetEnvironmentVariable("FRONT_END_URL"))
+        policy.WithOrigins(Environment.GetEnvironmentVariable("FRONT_END_URL")!)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -174,20 +174,20 @@ builder.Services.AddControllers(options =>
 
 var app = builder.Build();
 
-// 自動執行 EF Core migration（Production 環境）
-if (!app.Environment.IsDevelopment())
-{
-    using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<BillDbContext>();
-    db.Database.Migrate();
-}
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
+    // Configure the HTTP request pipeline.
     app.MapOpenApi();
     app.UseSwagger();
     app.UseSwaggerUI();
     app.UseHttpsRedirection();
+}
+else
+{
+    // 自動執行 EF Core migration（Production 環境）
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<BillDbContext>();
+    db.Database.Migrate();
 }
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();

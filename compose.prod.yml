@@ -51,6 +51,7 @@ services:
     environment:
       REDIS_CONNECTION: redis:6379
       DB_HOST: db
+      ASPNETCORE_ENVIRONMENT: Production
     networks:
       - bill-app-network
 networks:

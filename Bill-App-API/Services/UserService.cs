@@ -25,7 +25,7 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
     private readonly UserVerifyEmailOptions _userVerifyEmailOptions = userVerifyEmailOptions.Value;
     private readonly GoogleAuthOptions _googleAuthOptions = googleAuthOptions.Value;
     private readonly FrontendOptions _frontendOptions = frontendOptions.Value;
-    
+
     /// <summary>
     /// 重送驗證碼
     /// </summary>
@@ -136,7 +136,7 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
             Name: user.Name
         );
         // 建立redis的user sub hash資訊 & zset，過期時間為設定天數
-        var expireAt = DateTime.UtcNow.AddDays(_refreshTokenOptions.DurationInDay);
+        var expireAt = DateTime.UtcNow.AddDays(_refreshTokenOptions.DurationInDays);
         // 產生access token
         var accessToken = tokenService.GenerateAccessToken(user.Name, user.Email, user.Sub);
         // 建立redis的user sub hash資訊
@@ -276,7 +276,7 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
 
         // 產生 Token（與 Login 相同邏輯）
         var userSub = new UserSubHash(UserId: user.Id, Email: user.Email, Name: user.Name);
-        var expireAt = DateTime.UtcNow.AddDays(_refreshTokenOptions.DurationInDay);
+        var expireAt = DateTime.UtcNow.AddDays(_refreshTokenOptions.DurationInDays);
         var accessToken = tokenService.GenerateAccessToken(user.Name, user.Email, user.Sub);
         await redisService.SetUserSubAsync(user.Sub, userSub, TimeSpan.FromHours(_userCacheOptions.TtlInHours));
         var refreshToken = await RotateRefreshToken(user.Id, expireAt);
@@ -421,16 +421,16 @@ public class UserService(BillDbContext dbContext, IRedisService redisService, IT
     public async Task ChangePassword(UserChangePasswordRequest req, Guid userId)
     {
         var user = await dbContext.Users.FirstOrDefaultAsync(item => item.Id == userId);
-        if(user is null)
+        if (user is null)
         {
             throw new ApiException("使用者不存在");
         }
-        if(user.Password is null || user.AuthProvider == AuthProviderEnum.Google)
+        if (user.Password is null || user.AuthProvider == AuthProviderEnum.Google)
         {
             throw new ApiException("該帳號已綁定 Google，無法修改密碼", 400);
         }
         var isOldPasswordCorrect = PasswordHasher.VerifyPassword(req.OldPassword, user.Password);
-        if(!isOldPasswordCorrect)
+        if (!isOldPasswordCorrect)
         {
             throw new ApiException("舊密碼錯誤", 400);
         }

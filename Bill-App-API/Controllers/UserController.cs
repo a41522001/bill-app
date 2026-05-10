@@ -53,7 +53,7 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
         Response.Cookies.Append("accessToken", tokens.AccessToken,
             _authCookieOptions.Create(DateTimeOffset.UtcNow.AddMinutes(_jwtOptions.DurationInMinutes)));
         Response.Cookies.Append("refreshToken", tokens.RefreshToken.ToString(),
-            _authCookieOptions.Create(DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDay)));
+            _authCookieOptions.Create(DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDays)));
         return Ok("登入成功");
     }
     /// <summary>
@@ -94,7 +94,7 @@ public class UserController(ILogger<UserController> logger, IUserService userSer
         Response.Cookies.Append("accessToken", tokens.AccessToken,
             _authCookieOptions.Create(DateTimeOffset.UtcNow.AddMinutes(_jwtOptions.DurationInMinutes)));
         Response.Cookies.Append("refreshToken", tokens.RefreshToken.ToString(),
-            _authCookieOptions.Create(DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDay)));
+            _authCookieOptions.Create(DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.DurationInDays)));
         return Ok("Google 登入成功");
     }
     /// <summary>

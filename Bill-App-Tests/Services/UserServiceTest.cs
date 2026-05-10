@@ -45,7 +45,7 @@ public class UserServiceTest
             _emailServiceMock.Object,
             _fileStorageServiceMock.Object,
             Options.Create(new MaxDeviceOptions { MaxDevice = 5 }),
-            Options.Create(new RefreshTokenOptions { DurationInDay = 7 }),
+            Options.Create(new RefreshTokenOptions { DurationInDays = 7 }),
             Options.Create(new UserCacheOptions { TtlInHours = 24 }),
             Options.Create(new UserVerifyEmailOptions { TtlInHours = 1 }),
             Options.Create(new GoogleAuthOptions { ClientId = "test" }),
@@ -55,7 +55,7 @@ public class UserServiceTest
     ///<summary>
     ////// 測試 ResendVerifyEmail 功能的各種情況，包括：
     ///</summary>
-    #region 
+    #region
     public static IEnumerable<object[]> UserData =>
     [
         [new User { Id = Guid.NewGuid(), Name = "Test1", Email = "test1@test1.com", AuthProvider = AuthProviderEnum.Google, IsEmailVerified = true}],
